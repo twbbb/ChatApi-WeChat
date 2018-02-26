@@ -5,16 +5,13 @@ import me.xuxiaoxiao.chatapi.wechat.entity.Msg;
 import me.xuxiaoxiao.chatapi.wechat.entity.User;
 import me.xuxiaoxiao.chatapi.wechat.protocol.ReqBatchGetContact.Contact;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
-import me.xuxiaoxiao.xtools.XTools;
+import me.xuxiaoxiao.xtools.common.XTools;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 
@@ -52,7 +49,13 @@ public final class WeChatClient {
      */
     private void loadContacts(List<Contact> contacts, boolean useCache) {
         if (useCache) {
-            contacts.removeIf(contact -> wxContacts.getContact(contact.UserName) != null);
+            Iterator<Contact> iterator = contacts.iterator();
+            while (iterator.hasNext()) {
+                Contact contact = iterator.next();
+                if (wxContacts.getContact(contact.UserName) != null) {
+                    iterator.remove();
+                }
+            }
         }
         if (contacts.size() > 50) {
             LinkedList<Contact> temp = new LinkedList<>();

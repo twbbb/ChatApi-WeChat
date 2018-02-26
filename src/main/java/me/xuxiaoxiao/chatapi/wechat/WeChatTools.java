@@ -3,10 +3,9 @@ package me.xuxiaoxiao.chatapi.wechat;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.entity.AddMsg;
-import me.xuxiaoxiao.xtools.XHttpTools;
-import me.xuxiaoxiao.xtools.XHttpTools.XBody;
-import me.xuxiaoxiao.xtools.XHttpTools.XUrl;
-import me.xuxiaoxiao.xtools.XTools;
+import me.xuxiaoxiao.xtools.common.XTools;
+import me.xuxiaoxiao.xtools.common.http.XOption;
+import me.xuxiaoxiao.xtools.common.http.XRequest;
 
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -15,17 +14,47 @@ import java.util.regex.Pattern;
  * 模拟网页微信客户端工具类
  */
 public class WeChatTools {
-    public static final int TYPE_TEXT = 1;//文字
-    public static final int TYPE_IMAGE = 3;//图片
-    public static final int TYPE_VOICE = 34;//语音
-    public static final int TYPE_VERIFY = 37;//好友请求
-    public static final int TYPE_CARD = 42;//名片
-    public static final int TYPE_VIDEO = 43;//视频
-    public static final int TYPE_FACE = 47;//收藏的表情
-    public static final int TYPE_OTHER = 49;//转账、文件、链接、笔记等
+    /**
+     * 文字消息
+     */
+    public static final int TYPE_TEXT = 1;
+    /**
+     * 图片消息
+     */
+    public static final int TYPE_IMAGE = 3;
+    /**
+     * 语音消息
+     */
+    public static final int TYPE_VOICE = 34;
+    /**
+     * 好友请求
+     */
+    public static final int TYPE_VERIFY = 37;
+    /**
+     * 名片消息
+     */
+    public static final int TYPE_CARD = 42;
+    /**
+     * 视频消息
+     */
+    public static final int TYPE_VIDEO = 43;
+    /**
+     * 收藏的表情
+     */
+    public static final int TYPE_FACE = 47;
+    /**
+     * 转账、文件、链接、笔记等
+     */
+    public static final int TYPE_OTHER = 49;
 
-    static final int TYPE_NOTIFY = 51;//消息已读
-    static final int TYPE_SYSTEM = 10000;//系统消息
+    /**
+     * 消息已读
+     */
+    static final int TYPE_NOTIFY = 51;
+    /**
+     * 系统消息
+     */
+    static final int TYPE_SYSTEM = 10000;
 
     static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
     static final Gson GSON = new GsonBuilder().create();
@@ -74,16 +103,14 @@ public class WeChatTools {
     /**
      * 接口请求
      *
-     * @param url   接口地址
-     * @param body  Post请求体
      * @param regex 返回值需要满足的正则表达式
      * @return 接口返回的字符串
      */
-    static String request(XUrl url, XBody body, String regex) {
+    static String request(XRequest request, String regex) {
         for (int i = 0; i < 3; i++) {
-            String respStr = XHttpTools.request(new XHttpTools.XOption("utf-8", 90 * 1000, 90 * 1000), url, body).string();
+            String respStr = XTools.http(new XOption(90 * 1000, 90 * 1000), request).string();
             if (!XTools.strEmpty(respStr) && Pattern.compile(regex).matcher(respStr).find()) {
-                WeChatTools.LOGGER.finest(String.format("请求接口：\n%s，返回数据：\n%s", url.toString(), respStr));
+                WeChatTools.LOGGER.finest(String.format("请求接口返回数据：\n%s", respStr));
                 return respStr;
             }
         }
