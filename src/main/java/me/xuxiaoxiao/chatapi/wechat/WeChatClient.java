@@ -9,7 +9,6 @@ import me.xuxiaoxiao.xtools.common.XTools;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.util.*;
 import java.util.logging.Handler;
@@ -28,12 +27,10 @@ public final class WeChatClient {
     private final WeChatContacts wxContacts = new WeChatContacts();
     private final WeChatApi wxAPI;
     private final WeChatListener wxListener;
-    private final CookieManager cookieManager;
 
-    public WeChatClient(WeChatListener wxListener, CookieManager cookieManager, File folder, Handler handler) {
+    public WeChatClient(WeChatListener wxListener, File folder, Handler handler) {
         this.wxAPI = new WeChatApi(folder == null ? new File("") : folder);
         this.wxListener = wxListener;
-        this.cookieManager = cookieManager;
         if (handler != null) {
             WeChatTools.LOGGER.setLevel(handler.getLevel());
             WeChatTools.LOGGER.setUseParentHandlers(false);
@@ -492,7 +489,7 @@ public final class WeChatClient {
         private String initial() {
             try {
                 WeChatTools.LOGGER.finer("正在获取Cookie");
-                for (HttpCookie cookie : cookieManager.getCookieStore().getCookies()) {
+                for (HttpCookie cookie : WeChatTools.HTTP_OPTION.cookieManager.getCookieStore().getCookies()) {
                     if (cookie.getName().equalsIgnoreCase("wxsid")) {
                         wxAPI.sid = cookie.getValue();
                     } else if (cookie.getName().equalsIgnoreCase("wxuin")) {

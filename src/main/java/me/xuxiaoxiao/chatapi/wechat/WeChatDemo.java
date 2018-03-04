@@ -5,14 +5,10 @@ import me.xuxiaoxiao.chatapi.wechat.entity.User;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.util.Arrays;
 import java.util.Scanner;
 
 public class WeChatDemo {
-    //网页微信登录时有两个重要的值（wxsid，wxuin）是在cookie中返回的，这里使用了默认的内存Cookie管理器
-    public static final CookieManager cookieManager = new CookieManager();
     //新建一个模拟微信客户端，并绑定一个简单的监听器
     public static WeChatClient wechatClient = new WeChatClient(new WeChatClient.WeChatListener() {
         @Override
@@ -94,11 +90,9 @@ public class WeChatDemo {
         public void onLogout() {
             System.out.println("onLogout");
         }
-    }, cookieManager, null, null);
+    }, null, null);
 
     public static void main(String[] args) {
-        //设置CookieManager
-        CookieHandler.setDefault(cookieManager);
         //启动模拟微信客户端
         wechatClient.startup();
         Scanner scanner = new Scanner(System.in);

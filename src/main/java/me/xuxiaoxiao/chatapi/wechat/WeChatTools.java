@@ -58,6 +58,7 @@ public class WeChatTools {
 
     static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
     static final Gson GSON = new GsonBuilder().create();
+    static final XOption HTTP_OPTION = new XOption(90 * 1000, 90 * 1000);
 
     private WeChatTools() {
     }
@@ -108,7 +109,7 @@ public class WeChatTools {
      */
     static String request(XRequest request, String regex) {
         for (int i = 0; i < 3; i++) {
-            String respStr = XTools.http(new XOption(90 * 1000, 90 * 1000), request).string();
+            String respStr = XTools.http(HTTP_OPTION, request).string();
             if (!XTools.strEmpty(respStr) && Pattern.compile(regex).matcher(respStr).find()) {
                 WeChatTools.LOGGER.finest(String.format("请求接口返回数据：\n%s", respStr));
                 return respStr;
