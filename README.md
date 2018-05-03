@@ -11,6 +11,7 @@
 * 全部功能的支持
     * 监听文字、图像、语音、视频、文件、系统提示等消息
     * 发送文字和图像消息
+    * 撤回发送的消息
     * 发送好友申请
     * 同意好友申请
     * 修改好友备注
@@ -21,27 +22,34 @@
 * 最长在线时间7天
 
 ## 如何使用
-* 首先下载必要的依赖，[gson](https://github.com/google/gson)和[xtools-common](https://github.com/xuxiaoxiao-xxx/XTools-Common)
+* 使用maven下载必要依赖
+```xml
+<dependencies>
+    <!--xtools基础工具库-->
+    <dependency>
+        <groupId>me.xuxiaoxiao</groupId>
+        <artifactId>xtools-common</artifactId>
+        <version>1.1.1</version>
+    </dependency>
+    <!--gson工具类-->
+    <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.8.2</version>
+    </dependency>
+</dependencies>
+```
+
 * 以下是一个学别人说话的小机器人，用到了该库提供的大部分功能
 ```java
 public class WeChatDemo {
-    //网页微信登录时有两个重要的值（wxsid，wxuin）是在cookie中返回的，这里使用了默认的内存Cookie管理器
-    public static final CookieManager cookieManager = new CookieManager();
-    //新建一个模拟微信客户端，并绑定一个简单的监听器
+    /**
+     * 新建一个模拟微信客户端，并绑定一个简单的监听器
+     */
     public static WeChatClient wechatClient = new WeChatClient(new WeChatClient.WeChatListener() {
         @Override
         public void onQRCode(String qrCode) {
             System.out.println("onQRCode:" + qrCode);
-        }
-        
-        @Override
-        public void onAvatar(String base64Avatar) {
-            System.out.println("onAvatar:" + base64Avatar);
-        }
-        
-        @Override
-        public void onFailure(String reason) {
-            System.out.println("onFailure:" + reason);
         }
         
         @Override
@@ -58,61 +66,9 @@ public class WeChatDemo {
                 wechatClient.sendText(userWhere.UserName, text);
             }
         }
-        
-        @Override
-        public void onMessageImage(String msgId, User userWhere, User userFrom, File image) {
-            System.out.println("onMessageImage");
-        }
-        
-        @Override
-        public void onMessageVoice(String msgId, User userWhere, User userFrom, File voice) {
-            System.out.println("onMessageVoice");
-        }
-        
-        @Override
-        public void onMessageVideo(String msgId, User userWhere, User userFrom, File thumbnail, File video) {
-            System.out.println("onMessageVideo");
-        }
-        
-        @Override
-        public void onMessageCard(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
-            System.out.println(String.format("onMessageCard：%s", WeChatTools.GSON.toJson(recommendInfo)));
-        }
-        
-        @Override
-        public void onMessageVerify(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
-            System.out.println(String.format("onMessageVerify：%s", WeChatTools.GSON.toJson(recommendInfo)));
-        }
-        
-        @Override
-        public void onMessageOther(String msgId, User userWhere, User userFrom) {
-            System.out.println("onMessageOther");
-        }
-        
-        @Override
-        public void onNotify(AddMsg addMsg) {
-            System.out.println("onNotify");
-        }
-        
-        @Override
-        public void onSystem(AddMsg addMsg) {
-            System.out.println("onSystem");
-        }
-        
-        @Override
-        public void onUnknown(AddMsg addMsg) {
-            System.out.println("onUnknown");
-        }
-        
-        @Override
-        public void onLogout() {
-            System.out.println("onLogout");
-        }
-    }, cookieManager, null, null);
+    }, null);
     
     public static void main(String[] args) {
-        //设置CookieManager
-        CookieHandler.setDefault(cookieManager);
         //启动模拟微信客户端
         wechatClient.startup();
         Scanner scanner = new Scanner(System.in);
@@ -137,6 +93,16 @@ public class WeChatDemo {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                }
+                break;
+                case "revokeMsg": {
+                    System.out.println("toUserName:");
+                    String toUserName = scanner.nextLine();
+                    System.out.println("clientMsgId:");
+                    String clientMsgId = scanner.nextLine();
+                    System.out.println("serverMsgId:");
+                    String serverMsgId = scanner.nextLine();
+                    wechatClient.revokeMsg(toUserName, clientMsgId, serverMsgId);
                 }
                 break;
                 case "sendVerify": {

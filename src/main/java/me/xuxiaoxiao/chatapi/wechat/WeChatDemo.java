@@ -1,6 +1,5 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.chatapi.wechat.entity.AddMsg;
 import me.xuxiaoxiao.chatapi.wechat.entity.User;
 
 import java.io.File;
@@ -9,21 +8,13 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 public class WeChatDemo {
-    //新建一个模拟微信客户端，并绑定一个简单的监听器
+    /**
+     * 新建一个模拟微信客户端，并绑定一个简单的监听器
+     */
     public static WeChatClient wechatClient = new WeChatClient(new WeChatClient.WeChatListener() {
         @Override
         public void onQRCode(String qrCode) {
             System.out.println("onQRCode:" + qrCode);
-        }
-
-        @Override
-        public void onAvatar(String base64Avatar) {
-            System.out.println("onAvatar:" + base64Avatar);
-        }
-
-        @Override
-        public void onFailure(String reason) {
-            System.out.println("onFailure:" + reason);
         }
 
         @Override
@@ -40,57 +31,7 @@ public class WeChatDemo {
                 wechatClient.sendText(userWhere.UserName, text);
             }
         }
-
-        @Override
-        public void onMessageImage(String msgId, User userWhere, User userFrom, File image) {
-            System.out.println("onMessageImage");
-        }
-
-        @Override
-        public void onMessageVoice(String msgId, User userWhere, User userFrom, File voice) {
-            System.out.println("onMessageVoice");
-        }
-
-        @Override
-        public void onMessageVideo(String msgId, User userWhere, User userFrom, File thumbnail, File video) {
-            System.out.println("onMessageVideo");
-        }
-
-        @Override
-        public void onMessageCard(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
-            System.out.println(String.format("onMessageCard：%s", WeChatTools.GSON.toJson(recommendInfo)));
-        }
-
-        @Override
-        public void onMessageVerify(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
-            System.out.println(String.format("onMessageVerify：%s", WeChatTools.GSON.toJson(recommendInfo)));
-        }
-
-        @Override
-        public void onMessageOther(String msgId, User userWhere, User userFrom) {
-            System.out.println("onMessageOther");
-        }
-
-        @Override
-        public void onNotify(AddMsg addMsg) {
-            System.out.println("onNotify");
-        }
-
-        @Override
-        public void onSystem(AddMsg addMsg) {
-            System.out.println("onSystem");
-        }
-
-        @Override
-        public void onUnknown(AddMsg addMsg) {
-            System.out.println("onUnknown");
-        }
-
-        @Override
-        public void onLogout() {
-            System.out.println("onLogout");
-        }
-    }, null, null);
+    }, null);
 
     public static void main(String[] args) {
         //启动模拟微信客户端
@@ -117,6 +58,16 @@ public class WeChatDemo {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                }
+                break;
+                case "revokeMsg": {
+                    System.out.println("toUserName:");
+                    String toUserName = scanner.nextLine();
+                    System.out.println("clientMsgId:");
+                    String clientMsgId = scanner.nextLine();
+                    System.out.println("serverMsgId:");
+                    String serverMsgId = scanner.nextLine();
+                    wechatClient.revokeMsg(toUserName, clientMsgId, serverMsgId);
                 }
                 break;
                 case "sendVerify": {

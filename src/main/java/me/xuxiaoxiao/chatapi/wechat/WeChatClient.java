@@ -28,15 +28,26 @@ public final class WeChatClient {
     private final WeChatApi wxAPI;
     private final WeChatListener wxListener;
 
+    public WeChatClient(WeChatListener wxListener) {
+        this(wxListener, null, null);
+    }
+
+    public WeChatClient(WeChatListener wxListener, File folder) {
+        this(wxListener, folder, null);
+    }
+
     public WeChatClient(WeChatListener wxListener, File folder, Handler handler) {
-        this.wxAPI = new WeChatApi(folder == null ? new File("") : folder);
+        Objects.requireNonNull(wxListener);
         this.wxListener = wxListener;
+        if (folder == null) {
+            folder = new File("");
+        }
+        this.wxAPI = new WeChatApi(folder);
         if (handler != null) {
             WeChatTools.LOGGER.setLevel(handler.getLevel());
             WeChatTools.LOGGER.setUseParentHandlers(false);
             WeChatTools.LOGGER.addHandler(handler);
         }
-        System.setProperty("jsse.enableSNIExtension", "false");
     }
 
     /**
@@ -200,6 +211,18 @@ public final class WeChatClient {
     }
 
     /**
+     * 撤回消息
+     *
+     * @param toUserName  目标用户的UserName
+     * @param clientMsgId 本地消息id
+     * @param serverMsgId 服务端消息id
+     */
+    public void revokeMsg(String toUserName, String clientMsgId, String serverMsgId) {
+        WeChatTools.LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", toUserName, clientMsgId, serverMsgId));
+        wxAPI.webwxrevokemsg(clientMsgId, serverMsgId, toUserName);
+    }
+
+    /**
      * 根据消息ID和图片类型获取图片
      *
      * @param msgId 消息ID
@@ -285,32 +308,35 @@ public final class WeChatClient {
     /**
      * 模拟网页微信客户端监听器
      */
-    public interface WeChatListener {
+    public static abstract class WeChatListener {
         /**
          * 获取到用户登录的二维码
          *
          * @param qrCode 用户登录二维码的url
          */
-        void onQRCode(String qrCode);
+        public abstract void onQRCode(String qrCode);
 
         /**
          * 获取用户头像，base64编码
          *
          * @param base64Avatar base64编码的用户头像
          */
-        void onAvatar(String base64Avatar);
+        public void onAvatar(String base64Avatar) {
+        }
 
         /**
          * 模拟网页微信客户端异常退出
          *
          * @param reason 错误原因
          */
-        void onFailure(String reason);
+        public void onFailure(String reason) {
+        }
 
         /**
          * 用户登录并初始化成功
          */
-        void onLogin();
+        public void onLogin() {
+        }
 
         /**
          * 用户获取到文字消息
@@ -320,7 +346,8 @@ public final class WeChatClient {
          * @param userFrom  消息发送者
          * @param content   文字内容
          */
-        void onMessageText(String msgId, User userWhere, User userFrom, String content);
+        public void onMessageText(String msgId, User userWhere, User userFrom, String content) {
+        }
 
         /**
          * 用户获取到图像消息
@@ -330,7 +357,8 @@ public final class WeChatClient {
          * @param userFrom  消息发送者
          * @param image     图像文件
          */
-        void onMessageImage(String msgId, User userWhere, User userFrom, File image);
+        public void onMessageImage(String msgId, User userWhere, User userFrom, File image) {
+        }
 
         /**
          * 用户获取到语音消息
@@ -340,7 +368,8 @@ public final class WeChatClient {
          * @param userFrom  消息发送者
          * @param voice     语音文件
          */
-        void onMessageVoice(String msgId, User userWhere, User userFrom, File voice);
+        public void onMessageVoice(String msgId, User userWhere, User userFrom, File voice) {
+        }
 
         /**
          * 用户获取到视频消息
@@ -351,7 +380,8 @@ public final class WeChatClient {
          * @param thumbnail 视频封面
          * @param video     视频文件
          */
-        void onMessageVideo(String msgId, User userWhere, User userFrom, File thumbnail, File video);
+        public void onMessageVideo(String msgId, User userWhere, User userFrom, File thumbnail, File video) {
+        }
 
         /**
          * 用户获取到名片消息
@@ -361,7 +391,8 @@ public final class WeChatClient {
          * @param userFrom      消息发送者
          * @param recommendInfo 被推荐人信息
          */
-        void onMessageCard(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo);
+        public void onMessageCard(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
+        }
 
         /**
          * 用户获取到好友请求
@@ -371,7 +402,8 @@ public final class WeChatClient {
          * @param userFrom      消息发送者
          * @param recommendInfo 被推荐人信息
          */
-        void onMessageVerify(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo);
+        public void onMessageVerify(String msgId, User userWhere, User userFrom, AddMsg.RecommendInfo recommendInfo) {
+        }
 
         /**
          * 用户获取到未知类型的消息
@@ -380,33 +412,46 @@ public final class WeChatClient {
          * @param userWhere 消息来源
          * @param userFrom  消息发送者
          */
-        void onMessageOther(String msgId, User userWhere, User userFrom);
+        public void onMessageOther(String msgId, User userWhere, User userFrom) {
+        }
 
         /**
          * 用户获取到提醒消息
          *
          * @param addMsg 提醒消息
          */
-        void onNotify(AddMsg addMsg);
+        public void onNotify(AddMsg addMsg) {
+        }
 
         /**
          * 用户获取到系统消息
          *
          * @param addMsg 系统消息
          */
-        void onSystem(AddMsg addMsg);
+        public void onSystem(AddMsg addMsg) {
+        }
+
+        /**
+         * 用户获取到撤回消息提示
+         *
+         * @param addMsg 系统消息
+         */
+        public void onRevoke(AddMsg addMsg) {
+        }
 
         /**
          * 用户获取到未知类型消息
          *
          * @param addMsg 未知类型消息
          */
-        void onUnknown(AddMsg addMsg);
+        public void onUnknown(AddMsg addMsg) {
+        }
 
         /**
          * 模拟网页微信客户端正常退出
          */
-        void onLogout();
+        public void onLogout() {
+        }
     }
 
     /**
@@ -489,12 +534,12 @@ public final class WeChatClient {
         private String initial() {
             try {
                 WeChatTools.LOGGER.finer("正在获取Cookie");
-                for (HttpCookie cookie : WeChatTools.HTTP_OPTION.cookieManager.getCookieStore().getCookies()) {
-                    if (cookie.getName().equalsIgnoreCase("wxsid")) {
+                for (HttpCookie cookie : wxAPI.httpOption.cookieManager.getCookieStore().getCookies()) {
+                    if ("wxsid".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.sid = cookie.getValue();
-                    } else if (cookie.getName().equalsIgnoreCase("wxuin")) {
+                    } else if ("wxuin".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.uin = cookie.getValue();
-                    } else if (cookie.getName().equalsIgnoreCase("webwx_data_ticket")) {
+                    } else if ("webwx_data_ticket".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.dataTicket = cookie.getValue();
                     }
                 }
@@ -544,13 +589,15 @@ public final class WeChatClient {
                         return null;
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
-                        if (rspSync.ModContactList != null) {//被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
+                        if (rspSync.ModContactList != null) {
+                            //被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
                             for (User user : rspSync.ModContactList) {
                                 WeChatTools.LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
                                 wxContacts.addContact(user);
                             }
                         }
-                        if (rspSync.DelContactList != null) {//删除好友，删除群后的任意一条消息
+                        if (rspSync.DelContactList != null) {
+                            //删除好友，删除群后的任意一条消息
                             for (User user : rspSync.DelContactList) {
                                 WeChatTools.LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
                                 wxContacts.rmvContact(user.UserName);
@@ -603,6 +650,9 @@ public final class WeChatClient {
                                         break;
                                     case WeChatTools.TYPE_SYSTEM:
                                         wxListener.onSystem(addMsg);
+                                        break;
+                                    case WeChatTools.TYPE_REVOKE:
+                                        wxListener.onRevoke(addMsg);
                                         break;
                                     default:
                                         wxListener.onUnknown(addMsg);

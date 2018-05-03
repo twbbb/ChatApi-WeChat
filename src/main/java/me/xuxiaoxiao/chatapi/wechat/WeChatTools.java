@@ -3,12 +3,8 @@ package me.xuxiaoxiao.chatapi.wechat;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.entity.AddMsg;
-import me.xuxiaoxiao.xtools.common.XTools;
-import me.xuxiaoxiao.xtools.common.http.XOption;
-import me.xuxiaoxiao.xtools.common.http.XRequest;
 
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 /**
  * 模拟网页微信客户端工具类
@@ -55,10 +51,13 @@ public class WeChatTools {
      * 系统消息
      */
     static final int TYPE_SYSTEM = 10000;
+    /**
+     * 系统消息，撤回消息
+     */
+    static final int TYPE_REVOKE = 10002;
 
     static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
     static final Gson GSON = new GsonBuilder().create();
-    static final XOption HTTP_OPTION = new XOption(90 * 1000, 90 * 1000);
 
     private WeChatTools() {
     }
@@ -99,22 +98,5 @@ public class WeChatTools {
         } else {
             return addMsg.Content;
         }
-    }
-
-    /**
-     * 接口请求
-     *
-     * @param regex 返回值需要满足的正则表达式
-     * @return 接口返回的字符串
-     */
-    static String request(XRequest request, String regex) {
-        for (int i = 0; i < 3; i++) {
-            String respStr = XTools.http(HTTP_OPTION, request).string();
-            if (!XTools.strEmpty(respStr) && Pattern.compile(regex).matcher(respStr).find()) {
-                WeChatTools.LOGGER.finest(String.format("请求接口返回数据：\n%s", respStr));
-                return respStr;
-            }
-        }
-        return null;
     }
 }
