@@ -1,6 +1,5 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.chatapi.wechat.entity.Msg;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.ReqBatchGetContact.Contact;
 import me.xuxiaoxiao.xtools.common.XTools;
@@ -199,7 +198,7 @@ final class WeChatApi {
      * @param msg 需要发送的消息
      * @return 发送的结果
      */
-    RspSendMsg webwxsendmsg(Msg msg) {
+    RspSendMsg webwxsendmsg(ReqSendMsg.Msg msg) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxsendmsg", host));
         request.query("pass_ticket", this.passticket);
         request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqSendMsg(new BaseRequest(uin, sid, skey), msg))));
@@ -212,7 +211,7 @@ final class WeChatApi {
      * @param msg 需要发送的图片消息
      * @return 发送的结果
      */
-    RspSendMsg webwxsendmsgimg(Msg msg) {
+    RspSendMsg webwxsendmsgimg(ReqSendMsg.Msg msg) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxsendmsgimg", host));
         request.query("fun", "async");
         request.query("f", "json");

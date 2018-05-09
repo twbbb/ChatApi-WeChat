@@ -1,6 +1,6 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.chatapi.wechat.entity.User;
+import me.xuxiaoxiao.chatapi.wechat.protocol.RspInit;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,14 +24,14 @@ public class WeChatDemo {
         }
 
         @Override
-        public void onMessageText(String msgId, User userWhere, User userFrom, String text) {
+        public void onMessageText(String msgId, RspInit.User userWhere, RspInit.User userFrom, String text) {
             System.out.println("onMessageText:" + text);
             //学习别人说话
             if (!userFrom.UserName.equals(wechatClient.userMe().UserName)) {
                 wechatClient.sendText(userWhere.UserName, text);
             }
         }
-    }, null);
+    });
 
     public static void main(String[] args) {
         //启动模拟微信客户端

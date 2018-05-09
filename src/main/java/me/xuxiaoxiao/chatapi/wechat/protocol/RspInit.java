@@ -1,7 +1,5 @@
 package me.xuxiaoxiao.chatapi.wechat.protocol;
 
-import me.xuxiaoxiao.chatapi.wechat.entity.User;
-
 import java.util.ArrayList;
 
 public class RspInit {
@@ -57,4 +55,40 @@ public class RspInit {
         }
     }
 
+    public static class User {
+        public long Uin;
+        public String UserName;
+        public String NickName;
+        public String HeadImgUrl;
+        public String RemarkName;
+        public String PYInitial;
+        public String PYQuanPin;
+        public String RemarkPYInitial;
+        public String RemarkPYQuanPin;
+        public int HideInputBarFlag;
+        public int StarFriend;
+        public int Sex;
+        public String Signature;
+        public int AppAccountFlag;
+        public int VerifyFlag;
+        public int ContactFlag;
+        public int WebWxPluginSwitch;
+        public int HeadImgFlag;
+        public int SnsFlag;
+
+        public long OwnerUin;
+        public int MemberCount;
+        public ArrayList<User> MemberList;
+        public int Statues;
+        public long AttrStatus;
+        public long MemberStatus;
+        public String Province;
+        public String City;
+        public String Alias;
+        public long UniFriend;
+        public String DisplayName;
+        public long ChatRoomId;
+        public String KeyWord;
+        public String EncryChatRoomId;
+    }
 }

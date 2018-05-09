@@ -2,7 +2,7 @@ package me.xuxiaoxiao.chatapi.wechat;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import me.xuxiaoxiao.chatapi.wechat.entity.AddMsg;
+import me.xuxiaoxiao.chatapi.wechat.protocol.RspSync;
 
 import java.util.logging.Logger;
 
@@ -68,7 +68,7 @@ public class WeChatTools {
      * @param addMsg 获取到的消息
      * @return 是否是群消息
      */
-    public static boolean isGroupMsg(AddMsg addMsg) {
+    public static boolean isGroupMsg(RspSync.AddMsg addMsg) {
         return addMsg.FromUserName.startsWith("@@");
     }
 
@@ -78,7 +78,7 @@ public class WeChatTools {
      * @param addMsg 获取到的消息
      * @return 消息的实际发送者的UserName
      */
-    public static String msgSender(AddMsg addMsg) {
+    public static String msgSender(RspSync.AddMsg addMsg) {
         if (isGroupMsg(addMsg)) {
             return addMsg.Content.substring(0, addMsg.Content.indexOf(':'));
         } else {
@@ -92,7 +92,7 @@ public class WeChatTools {
      * @param addMsg 获取到的消息
      * @return 消息的实际内容
      */
-    public static String msgContent(AddMsg addMsg) {
+    public static String msgContent(RspSync.AddMsg addMsg) {
         if (isGroupMsg(addMsg)) {
             return addMsg.Content.substring(addMsg.Content.indexOf(':') + ":<br/>".length());
         } else {
