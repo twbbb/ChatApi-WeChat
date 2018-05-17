@@ -16,7 +16,7 @@ public class RspInit {
     public int InviteStartCount;
     public int MPSubscribeMsgCount;
     public ArrayList<MPSubscribeMsg> MPSubscribeMsgList;
-    public int ClickReportInterval;
+    public long ClickReportInterval;
 
     public static class SyncKey {
         public int Count;
@@ -89,6 +89,7 @@ public class RspInit {
         public String DisplayName;
         public long ChatRoomId;
         public String KeyWord;
+        public int IsOwner;
         public String EncryChatRoomId;
     }
 }

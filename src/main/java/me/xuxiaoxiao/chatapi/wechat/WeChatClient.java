@@ -1,6 +1,9 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.chatapi.wechat.protocol.ReqBatchGetContact.Contact;
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXContact;
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXGroup;
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.xtools.common.XTools;
 
@@ -11,6 +14,9 @@ import java.util.*;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 模拟网页微信客户端
@@ -20,6 +26,11 @@ public final class WeChatClient {
     public static final String LOGIN_EXCEPTION = "登陆异常";
     public static final String INIT_EXCEPTION = "初始化异常";
     public static final String LISTEN_EXCEPTION = "监听异常";
+
+    private static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
+    private static final Pattern REX_GROUPMSG = Pattern.compile("(@[0-9a-zA-Z]+):<br/>([\\s\\S]*)");
+    private static final Pattern REX_REVOKE_ID = Pattern.compile("&lt;msgid&gt;(\\d+)&lt;/msgid&gt;");
+    private static final Pattern REX_REVOKE_REPLACE = Pattern.compile("&lt;replacemsg&gt;&lt;!\\[CDATA\\[([\\s\\S]*)\\]\\]&gt;&lt;/replacemsg&gt;");
 
     private final WeChatThread wxThread = new WeChatThread();
     private final WeChatContacts wxContacts = new WeChatContacts();
@@ -41,46 +52,9 @@ public final class WeChatClient {
             handler.setLevel(Level.FINER);
         }
         this.wxAPI = new WeChatApi(folder);
-        WeChatTools.LOGGER.setLevel(handler.getLevel());
-        WeChatTools.LOGGER.setUseParentHandlers(false);
-        WeChatTools.LOGGER.addHandler(handler);
-    }
-
-    /**
-     * 获取联系人信息
-     *
-     * @param contacts 要获取的联系人的列表
-     */
-    private void loadContacts(List<Contact> contacts, boolean useCache) {
-        if (useCache) {
-            Iterator<Contact> iterator = contacts.iterator();
-            while (iterator.hasNext()) {
-                Contact contact = iterator.next();
-                if (wxContacts.getContact(contact.UserName) != null) {
-                    iterator.remove();
-                }
-            }
-        }
-        if (contacts.size() > 50) {
-            LinkedList<Contact> temp = new LinkedList<>();
-            for (Contact contact : contacts) {
-                temp.add(contact);
-                if (temp.size() >= 50) {
-                    RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
-                    for (RspInit.User user : rspBatchGetContact.ContactList) {
-                        wxContacts.addContact(user);
-                    }
-                    temp.clear();
-                }
-            }
-            contacts = temp;
-        }
-        if (contacts.size() > 0) {
-            RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
-            for (RspInit.User user : rspBatchGetContact.ContactList) {
-                wxContacts.addContact(user);
-            }
-        }
+        LOGGER.setLevel(handler.getLevel());
+        LOGGER.setUseParentHandlers(false);
+        LOGGER.addHandler(handler);
     }
 
     /**
@@ -111,126 +85,121 @@ public final class WeChatClient {
      *
      * @return 当前登录的用户信息
      */
-    public RspInit.User userMe() {
+    public WXUser userMe() {
         return wxContacts.getMe();
     }
 
     /**
-     * 根据UserName获取用户好友
+     * 根据userId获取用户好友
      *
-     * @param userName 好友的UserName
+     * @param userId 好友的id
      * @return 好友的信息
      */
-    public RspInit.User userFriend(String userName) {
-        return wxContacts.getFriend(userName);
+    public WXUser userFriend(String userId) {
+        return wxContacts.getFriend(userId);
     }
 
     /**
-     * 获取用户好友列表
+     * 获取用户所有好友
      *
-     * @return 用户好友列表
+     * @return 用户所有好友
      */
-    public ArrayList<RspInit.User> userFriends() {
+    public HashMap<String, WXUser> userFriends() {
         return wxContacts.getFriends();
     }
 
     /**
-     * 根据UserName获取用户公众号
+     * 根据群id获取群信息
      *
-     * @param userName 公众号的UserName
-     * @return 公众号的信息
+     * @param groupId 群id
+     * @return 群信息
      */
-    public RspInit.User userPublic(String userName) {
-        return wxContacts.getPublic(userName);
+    public WXGroup userGroup(String groupId) {
+        return wxContacts.getGroup(groupId);
     }
 
     /**
-     * 获取用户公众号列表
+     * 获取用户所有群
      *
-     * @return 公众号列表
+     * @return 用户所有群
      */
-    public ArrayList<RspInit.User> userPublics() {
-        return wxContacts.getPublics();
+    public HashMap<String, WXGroup> userGroups() {
+        return wxContacts.getGroups();
     }
 
     /**
-     * 根据聊天室UserName获取聊天室
+     * 根据联系人id获取用户联系人信息
      *
-     * @param userName 聊天室UserName
-     * @return 聊天室信息
-     */
-    public RspInit.User userChatroom(String userName) {
-        return wxContacts.getChatroom(userName);
-    }
-
-    /**
-     * 获取用户聊天室列表
-     *
-     * @return 聊天室列表
-     */
-    public ArrayList<RspInit.User> userChatrooms() {
-        return wxContacts.getChatrooms();
-    }
-
-    /**
-     * 根据联系人UserName获取用户联系人，好友、公众号、群、群成员等
-     *
-     * @param userName 联系人UserName
+     * @param contactId 联系人id
      * @return 联系人信息
      */
-    public RspInit.User userContact(String userName) {
-        return wxContacts.getContact(userName);
+    public WXContact userContact(String contactId) {
+        return wxContacts.getContact(contactId);
     }
 
     /**
      * 发送文字消息
      *
-     * @param toUserName 目标用户的UserName
-     * @param text       文字内容
+     * @param contactId 目标联系人的id
+     * @param text      文字内容
      */
-    public void sendText(String toUserName, String text) {
-        WeChatTools.LOGGER.info(String.format("向（%s）发送消息：%s", toUserName, text));
-        wxAPI.webwxsendmsg(new ReqSendMsg.Msg(WeChatTools.TYPE_TEXT, null, text, wxContacts.getMe().UserName, toUserName));
+    public void sendText(String contactId, String text) {
+        LOGGER.info(String.format("向（%s）发送消息：%s", contactId, text));
+        wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, text, wxContacts.getMe().id, contactId));
     }
 
     /**
      * 发送图片消息
      *
-     * @param toUserName 目标用户的UserName
-     * @param image      图片文件
-     * @throws IOException 文件IO异常
+     * @param contactId 目标联系人的id
+     * @param image     图片文件
      */
-    public void sendImage(String toUserName, File image) throws IOException {
-        WeChatTools.LOGGER.info(String.format("向（%s）发送图片：%s", toUserName, image.getAbsolutePath()));
-        RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().UserName, toUserName, image, "pic");
-        wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(WeChatTools.TYPE_IMAGE, rspUploadMedia.MediaId, "", wxContacts.getMe().UserName, toUserName));
+    public void sendImage(String contactId, File image) {
+        try {
+            LOGGER.info(String.format("向（%s）发送图片：%s", contactId, image.getAbsolutePath()));
+            RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().id, contactId, image, "pic");
+            wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, rspUploadMedia.MediaId, "", wxContacts.getMe().id, contactId));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * 撤回消息
      *
-     * @param toUserName  目标用户的UserName
+     * @param contactId   目标用户的UserName
      * @param clientMsgId 本地消息id
      * @param serverMsgId 服务端消息id
      */
-    public void revokeMsg(String toUserName, String clientMsgId, String serverMsgId) {
-        WeChatTools.LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", toUserName, clientMsgId, serverMsgId));
-        wxAPI.webwxrevokemsg(clientMsgId, serverMsgId, toUserName);
+    public void revokeMsg(String contactId, String clientMsgId, String serverMsgId) {
+        LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", contactId, clientMsgId, serverMsgId));
+        wxAPI.webwxrevokemsg(clientMsgId, serverMsgId, contactId);
     }
 
     /**
-     * 根据消息ID和图片类型获取图片
+     * 获取图片消息的大图
      *
-     * @param msgId 消息ID
-     * @param type  图片类型，slave：小图，big：大图，null：普通尺寸
-     * @return 图片文件
+     * @param wxImage 要获取大图的图片消息
      */
-    public File fetchImage(String msgId, String type) {
-        if ("slave".equals(type) || "big".equals(type)) {
-            return wxAPI.webwxgetmsgimg(msgId, type);
-        } else {
-            return wxAPI.webwxgetmsgimg(msgId, null);
-        }
+    public void fetchImage(WXImage wxImage) {
+        wxImage.image = wxAPI.webwxgetmsgimg(wxImage.id, "big");
+    }
+
+    public void fetchVoice(WXVoice wxVoice) {
+        wxVoice.voice = wxAPI.webwxgetvoice(wxVoice.id);
+    }
+
+    public void fetchVideo(WXVideo wxVideo) {
+        wxVideo.video = wxAPI.webwxgetvideo(wxVideo.id);
+    }
+
+    /**
+     * 获取文件消息的文件内容
+     *
+     * @param fileMsg 要获取文件内容的文件消息
+     */
+    public void fetchFile(WXFile fileMsg) {
+        fileMsg.file = wxAPI.webwxgetmedia(fileMsg.id, fileMsg.fileName, fileMsg.fileId, fileMsg.fromUser.id);
     }
 
     /**
@@ -240,7 +209,7 @@ public final class WeChatClient {
      * @param verifyContent 验证消息
      */
     public void sendVerify(String userName, String verifyContent) {
-        WeChatTools.LOGGER.info(String.format("发送好友（%s）申请：%s", userName, verifyContent));
+        LOGGER.info(String.format("发送好友（%s）申请：%s", userName, verifyContent));
         wxAPI.webwxverifyuser(2, userName, "", verifyContent);
     }
 
@@ -251,7 +220,7 @@ public final class WeChatClient {
      * @param verifyTicket 验证票据
      */
     public void passVerify(String userName, String verifyTicket) {
-        WeChatTools.LOGGER.info(String.format("通过好友（%s）申请", userName));
+        LOGGER.info(String.format("通过好友（%s）申请", userName));
         wxAPI.webwxverifyuser(3, userName, verifyTicket, "");
     }
 
@@ -262,7 +231,7 @@ public final class WeChatClient {
      * @param remark   备注名称
      */
     public void editRemark(String userName, String remark) {
-        WeChatTools.LOGGER.info(String.format("修改（%s）的备注：%s", userName, remark));
+        LOGGER.info(String.format("修改（%s）的备注：%s", userName, remark));
         wxAPI.webwxoplog(userName, remark);
     }
 
@@ -273,9 +242,9 @@ public final class WeChatClient {
      * @param memberList 成员列表
      * @return 聊天室的UserName
      */
-    public String createChatroom(String topic, List<String> memberList) {
+    public String createGroup(String topic, List<String> memberList) {
         RspCreateChatroom rspCreateChatroom = wxAPI.webwxcreatechatroom(topic, memberList);
-        WeChatTools.LOGGER.info(String.format("创建群：%s（%s），成员：%s", topic, rspCreateChatroom.ChatRoomName, memberList));
+        LOGGER.info(String.format("创建群：%s（%s），成员：%s", topic, rspCreateChatroom.ChatRoomName, memberList));
         return rspCreateChatroom.ChatRoomName;
     }
 
@@ -285,8 +254,8 @@ public final class WeChatClient {
      * @param chatRoomName 聊天室的UserName
      * @param users        要添加的人员的UserName，必须是自己的好友
      */
-    public void addChatroomMember(String chatRoomName, List<String> users) {
-        WeChatTools.LOGGER.info(String.format("为群（%s）添加成员：%s", chatRoomName, users));
+    public void addGroupMember(String chatRoomName, List<String> users) {
+        LOGGER.info(String.format("为群（%s）添加成员：%s", chatRoomName, users));
         wxAPI.webwxupdatechartroom(chatRoomName, "addmember", users);
     }
 
@@ -296,8 +265,8 @@ public final class WeChatClient {
      * @param chatRoomName 聊天室的UserName
      * @param users        要移除的人员的UserName，必须是聊天室的成员，而且自己是管理员
      */
-    public void delChatroomMember(String chatRoomName, List<String> users) {
-        WeChatTools.LOGGER.info(String.format("为群（%s）删除成员：%s", chatRoomName, users));
+    public void delGroupMember(String chatRoomName, List<String> users) {
+        LOGGER.info(String.format("为群（%s）删除成员：%s", chatRoomName, users));
         wxAPI.webwxupdatechartroom(chatRoomName, "delmember", users);
     }
 
@@ -335,112 +304,9 @@ public final class WeChatClient {
         }
 
         /**
-         * 用户获取到文字消息
-         *
-         * @param msgId     消息ID
-         * @param userWhere 消息来源
-         * @param userFrom  消息发送者
-         * @param content   文字内容
+         * 用户获取到消息
          */
-        public void onMessageText(String msgId, RspInit.User userWhere, RspInit.User userFrom, String content) {
-        }
-
-        /**
-         * 用户获取到图像消息
-         *
-         * @param msgId     消息ID
-         * @param userWhere 消息来源
-         * @param userFrom  消息发送者
-         * @param image     图像文件
-         */
-        public void onMessageImage(String msgId, RspInit.User userWhere, RspInit.User userFrom, File image) {
-        }
-
-        /**
-         * 用户获取到语音消息
-         *
-         * @param msgId     消息ID
-         * @param userWhere 消息来源
-         * @param userFrom  消息发送者
-         * @param voice     语音文件
-         */
-        public void onMessageVoice(String msgId, RspInit.User userWhere, RspInit.User userFrom, File voice) {
-        }
-
-        /**
-         * 用户获取到视频消息
-         *
-         * @param msgId     消息ID
-         * @param userWhere 消息来源
-         * @param userFrom  消息发送者
-         * @param thumbnail 视频封面
-         * @param video     视频文件
-         */
-        public void onMessageVideo(String msgId, RspInit.User userWhere, RspInit.User userFrom, File thumbnail, File video) {
-        }
-
-        /**
-         * 用户获取到名片消息
-         *
-         * @param msgId         消息ID
-         * @param userWhere     消息来源
-         * @param userFrom      消息发送者
-         * @param recommendInfo 被推荐人信息
-         */
-        public void onMessageCard(String msgId, RspInit.User userWhere, RspInit.User userFrom, RspSync.AddMsg.RecommendInfo recommendInfo) {
-        }
-
-        /**
-         * 用户获取到好友请求
-         *
-         * @param msgId         消息ID
-         * @param userWhere     消息来源
-         * @param userFrom      消息发送者
-         * @param recommendInfo 被推荐人信息
-         */
-        public void onMessageVerify(String msgId, RspInit.User userWhere, RspInit.User userFrom, RspSync.AddMsg.RecommendInfo recommendInfo) {
-        }
-
-        /**
-         * 用户获取到未知类型的消息
-         *
-         * @param msgId     消息ID
-         * @param userWhere 消息来源
-         * @param userFrom  消息发送者
-         */
-        public void onMessageOther(String msgId, RspInit.User userWhere, RspInit.User userFrom) {
-        }
-
-        /**
-         * 用户获取到提醒消息
-         *
-         * @param addMsg 提醒消息
-         */
-        public void onNotify(RspSync.AddMsg addMsg) {
-        }
-
-        /**
-         * 用户获取到系统消息
-         *
-         * @param addMsg 系统消息
-         */
-        public void onSystem(RspSync.AddMsg addMsg) {
-        }
-
-        /**
-         * 用户获取到撤回消息提示
-         *
-         * @param addMsg 系统消息
-         */
-        public void onRevoke(RspSync.AddMsg addMsg) {
-        }
-
-        /**
-         * 用户获取到未知类型消息
-         *
-         * @param addMsg 未知类型消息
-         */
-        public void onUnknown(RspSync.AddMsg addMsg) {
+        public void onMessage(WXMessage message) {
         }
 
         /**
@@ -460,24 +326,24 @@ public final class WeChatClient {
             int loginCount = 0;
             while (!isInterrupted()) {
                 //用户登录
-                WeChatTools.LOGGER.fine("正在登录");
+                LOGGER.fine("正在登录");
                 String loginErr = login();
                 if (!XTools.strEmpty(loginErr)) {
-                    WeChatTools.LOGGER.severe(String.format("登录出现错误：%s", loginErr));
+                    LOGGER.severe(String.format("登录出现错误：%s", loginErr));
                     wxListener.onFailure(loginErr);
                     return;
                 }
                 //用户初始化
-                WeChatTools.LOGGER.fine("正在初始化");
+                LOGGER.fine("正在初始化");
                 String initErr = initial();
                 if (!XTools.strEmpty(initErr)) {
-                    WeChatTools.LOGGER.severe(String.format("初始化出现错误：%s", initErr));
+                    LOGGER.severe(String.format("初始化出现错误：%s", initErr));
                     wxListener.onFailure(initErr);
                     return;
                 }
                 wxListener.onLogin();
                 //同步消息
-                WeChatTools.LOGGER.fine("正在监听消息");
+                LOGGER.fine("正在监听消息");
                 String listenErr = listen();
                 if (!XTools.strEmpty(listenErr)) {
                     if (loginCount++ > 10) {
@@ -488,7 +354,7 @@ public final class WeChatClient {
                     }
                 }
                 //退出登录
-                WeChatTools.LOGGER.finer("正在退出登录");
+                LOGGER.finer("正在退出登录");
                 wxListener.onLogout();
                 return;
             }
@@ -503,24 +369,24 @@ public final class WeChatClient {
             try {
                 if (XTools.strEmpty(wxAPI.sid)) {
                     String qrCode = wxAPI.jslogin();
-                    WeChatTools.LOGGER.finer(String.format("等待扫描二维码：%s", qrCode));
+                    LOGGER.finer(String.format("等待扫描二维码：%s", qrCode));
                     wxListener.onQRCode(qrCode);
                     while (true) {
                         RspLogin rspLogin = wxAPI.login();
                         switch (rspLogin.code) {
                             case 200:
-                                WeChatTools.LOGGER.finer("已授权登录");
+                                LOGGER.finer("已授权登录");
                                 wxAPI.webwxnewloginpage(rspLogin.redirectUri);
                                 return null;
                             case 201:
-                                WeChatTools.LOGGER.finer("已扫描二维码");
+                                LOGGER.finer("已扫描二维码");
                                 wxListener.onAvatar(rspLogin.userAvatar);
                                 break;
                             case 408:
-                                WeChatTools.LOGGER.finer("等待授权登录");
+                                LOGGER.finer("等待授权登录");
                                 break;
                             default:
-                                WeChatTools.LOGGER.warning("登录超时");
+                                LOGGER.warning("登录超时");
                                 return LOGIN_TIMEOUT;
                         }
                     }
@@ -529,7 +395,7 @@ public final class WeChatClient {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                WeChatTools.LOGGER.warning(String.format("登录异常：%s", Arrays.toString(e.getStackTrace())));
+                LOGGER.warning(String.format("登录异常：%s", Arrays.toString(e.getStackTrace())));
                 return LOGIN_EXCEPTION;
             }
         }
@@ -541,7 +407,7 @@ public final class WeChatClient {
          */
         private String initial() {
             try {
-                WeChatTools.LOGGER.finer("正在获取Cookie");
+                LOGGER.finer("正在获取Cookie");
                 for (HttpCookie cookie : wxAPI.httpOption.cookieManager.getCookieStore().getCookies()) {
                     if ("wxsid".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.sid = cookie.getValue();
@@ -553,29 +419,29 @@ public final class WeChatClient {
                 }
 
                 //获取自身信息
-                WeChatTools.LOGGER.finer("正在获取自身信息");
+                LOGGER.finer("正在获取自身信息");
                 RspInit rspInit = wxAPI.webwxinit();
-                wxContacts.setMe(rspInit.User);
+                wxContacts.setMe(wxAPI.host, rspInit.User);
 
                 //获取好友、群、公众号列表
-                WeChatTools.LOGGER.finer("正在获取好友、群、公众号列表");
+                LOGGER.finer("正在获取好友、群、公众号列表");
                 RspGetContact rspGetContact = wxAPI.webwxgetcontact();
                 for (RspInit.User user : rspGetContact.MemberList) {
-                    wxContacts.addContact(user);
+                    wxContacts.putContact(wxAPI.host, user);
                 }
 
                 //获取联系人详细信息
-                WeChatTools.LOGGER.finer("正在获取联系人详细信息");
-                LinkedList<Contact> contacts = new LinkedList<>();
+                LOGGER.finer("正在获取联系人详细信息");
+                LinkedList<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
                 if (rspInit.ContactList != null) {
                     for (RspInit.User user : rspInit.ContactList) {
-                        contacts.add(new Contact(user.UserName, ""));
+                        contacts.add(new ReqBatchGetContact.Contact(user.UserName, ""));
                     }
                 }
-                loadContacts(contacts, false);
+                loadContacts(contacts);
                 return null;
             } catch (Exception e) {
-                WeChatTools.LOGGER.warning(String.format("初始化异常：%s", e.getMessage()));
+                LOGGER.warning(String.format("初始化异常：%s", e.getMessage()));
                 e.printStackTrace();
                 return e.toString() + Arrays.toString(e.getStackTrace());
             }
@@ -592,104 +458,249 @@ public final class WeChatClient {
                 while (!isInterrupted()) {
                     RspSyncCheck rspSyncCheck;
                     try {
-                        WeChatTools.LOGGER.finer("正在监听信息");
+                        LOGGER.finer("正在监听信息");
                         rspSyncCheck = wxAPI.synccheck();
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (retryCount++ < 5) {
-                            WeChatTools.LOGGER.warning(String.format("监听异常，重试第%d次：\n%s", retryCount, Arrays.toString(e.getStackTrace())));
+                            LOGGER.warning(String.format("监听异常，重试第%d次：\n%s", retryCount, Arrays.toString(e.getStackTrace())));
                             continue;
                         } else {
-                            WeChatTools.LOGGER.severe(String.format("监听异常，重试次数过多：\n%s", Arrays.toString(e.getStackTrace())));
+                            LOGGER.severe(String.format("监听异常，重试次数过多：\n%s", Arrays.toString(e.getStackTrace())));
                             return LISTEN_EXCEPTION;
                         }
                     }
                     retryCount = 0;
                     if (rspSyncCheck.retcode > 0) {
-                        WeChatTools.LOGGER.finer(String.format("停止监听信息：%d", rspSyncCheck.retcode));
+                        LOGGER.finer(String.format("停止监听信息：%d", rspSyncCheck.retcode));
                         return null;
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
                         if (rspSync.ModContactList != null) {
                             //被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
                             for (RspInit.User user : rspSync.ModContactList) {
-                                WeChatTools.LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
-                                wxContacts.addContact(user);
+                                LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
+                                wxContacts.putContact(wxAPI.host, user);
                             }
                         }
                         if (rspSync.DelContactList != null) {
                             //删除好友，删除群后的任意一条消息
                             for (RspInit.User user : rspSync.DelContactList) {
-                                WeChatTools.LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
+                                LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
                                 wxContacts.rmvContact(user.UserName);
                             }
                         }
                         if (rspSync.ModChatRoomMemberList != null) {
                             for (RspInit.User user : rspSync.ModChatRoomMemberList) {
-                                WeChatTools.LOGGER.finer(String.format("变更群成员（%s）", user.UserName));
-                                wxContacts.addContact(user);
+                                LOGGER.finer(String.format("变更群成员（%s）", user.UserName));
+                                wxContacts.putContact(wxAPI.host, user);
                             }
                         }
                         if (rspSync.AddMsgList != null) {
                             for (RspSync.AddMsg addMsg : rspSync.AddMsgList) {
-                                if (WeChatTools.LOGGER.isLoggable(Level.FINER)) {
-                                    WeChatTools.LOGGER.finer(String.format("收到新消息：%s", WeChatTools.GSON.toJson(addMsg)));
-                                }
-                                loadContacts(new ArrayList<>(Arrays.asList(new Contact(addMsg.FromUserName, ""), new Contact(WeChatTools.msgSender(addMsg), ""))), true);
-                                switch (addMsg.MsgType) {
-                                    case WeChatTools.TYPE_TEXT:
-                                        wxListener.onMessageText(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), WeChatTools.msgContent(addMsg));
-                                        break;
-                                    case WeChatTools.TYPE_IMAGE:
-                                        wxListener.onMessageImage(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), wxAPI.webwxgetmsgimg(addMsg.MsgId, "slave"));
-                                        break;
-                                    case WeChatTools.TYPE_VOICE:
-                                        wxListener.onMessageVoice(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), wxAPI.webwxgetvoice(addMsg.MsgId));
-                                        break;
-                                    case WeChatTools.TYPE_VIDEO:
-                                        wxListener.onMessageVideo(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), wxAPI.webwxgetmsgimg(addMsg.MsgId, "slave"), wxAPI.webwxgetvideo(addMsg.MsgId));
-                                        break;
-                                    case WeChatTools.TYPE_CARD:
-                                        wxListener.onMessageCard(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), addMsg.RecommendInfo);
-                                        break;
-                                    case WeChatTools.TYPE_VERIFY:
-                                        wxListener.onMessageVerify(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), addMsg.RecommendInfo);
-                                        break;
-                                    case WeChatTools.TYPE_FACE:
-                                        wxListener.onMessageImage(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)), wxAPI.webwxgetmsgimg(addMsg.MsgId, "big"));
-                                        break;
-                                    case WeChatTools.TYPE_OTHER:
-                                        wxListener.onMessageOther(addMsg.MsgId, wxContacts.getContact(addMsg.FromUserName), wxContacts.getContact(WeChatTools.msgSender(addMsg)));
-                                        break;
-                                    case WeChatTools.TYPE_NOTIFY:
-                                        LinkedList<Contact> contacts = new LinkedList<>();
-                                        for (String contact : addMsg.StatusNotifyUserName.split(",")) {
-                                            contacts.add(new Contact(contact, ""));
-                                        }
-                                        loadContacts(contacts, true);
-                                        wxListener.onNotify(addMsg);
-                                        break;
-                                    case WeChatTools.TYPE_SYSTEM:
-                                        wxListener.onSystem(addMsg);
-                                        break;
-                                    case WeChatTools.TYPE_REVOKE:
-                                        wxListener.onRevoke(addMsg);
-                                        break;
-                                    default:
-                                        wxListener.onUnknown(addMsg);
-                                        break;
-                                }
+                                wxListener.onMessage(parseMessage(addMsg));
                             }
                         }
                     }
-
                 }
                 return null;
             } catch (Exception e) {
                 e.printStackTrace();
-                WeChatTools.LOGGER.warning(String.format("监听消息异常：\n%s", Arrays.toString(e.getStackTrace())));
+                LOGGER.warning(String.format("监听消息异常：\n%s", Arrays.toString(e.getStackTrace())));
                 return e.toString();
             }
+        }
+
+        /**
+         * 获取联系人信息
+         *
+         * @param contacts 要获取的联系人的列表
+         */
+        private void loadContacts(List<ReqBatchGetContact.Contact> contacts) {
+            if (contacts.size() > 50) {
+                LinkedList<ReqBatchGetContact.Contact> temp = new LinkedList<>();
+                for (ReqBatchGetContact.Contact contact : contacts) {
+                    temp.add(contact);
+                    if (temp.size() >= 50) {
+                        RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
+                        for (RspInit.User user : rspBatchGetContact.ContactList) {
+                            wxContacts.putContact(wxAPI.host, user);
+                        }
+                        temp.clear();
+                    }
+                }
+                contacts = temp;
+            }
+            if (contacts.size() > 0) {
+                RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
+                for (RspInit.User user : rspBatchGetContact.ContactList) {
+                    wxContacts.putContact(wxAPI.host, user);
+                }
+            }
+        }
+
+        private <T extends WXMessage> T parseCommon(RspSync.AddMsg msg, T message) {
+            message.id = msg.MsgId;
+            message.timestamp = msg.CreateTime * 1000;
+            if (msg.FromUserName.startsWith("@@")) {
+                if (wxContacts.getGroup(msg.FromUserName) == null) {
+                    loadContacts(Collections.singletonList(new ReqBatchGetContact.Contact(msg.FromUserName, "")));
+                }
+                message.fromGroup = wxContacts.getGroup(msg.FromUserName);
+                Matcher mGroupMsg = REX_GROUPMSG.matcher(msg.Content);
+                if (mGroupMsg.matches()) {
+                    if (wxContacts.getContact(mGroupMsg.group(1)) == null) {
+                        if (message.fromGroup == null) {
+                            message.fromUser = null;
+                        } else {
+                            List<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
+                            for (Map.Entry<String, WXGroup.Member> entry : message.fromGroup.members.entrySet()) {
+                                contacts.add(new ReqBatchGetContact.Contact(entry.getValue().id, ""));
+                            }
+                            loadContacts(contacts);
+                            message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
+                        }
+                    }
+                    message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
+                }
+                message.toContact = wxContacts.getContact(msg.ToUserName);
+                if (message.fromUser != null) {
+                    message.content = mGroupMsg.group(2);
+                } else {
+                    message.content = msg.Content;
+                }
+            } else {
+                message.fromGroup = null;
+                message.fromUser = (WXUser) wxContacts.getContact(msg.FromUserName);
+                message.toContact = wxContacts.getContact(msg.ToUserName);
+                message.content = msg.Content;
+            }
+            return message;
+        }
+
+        private WXMessage parseMessage(RspSync.AddMsg msg) {
+            try {
+                switch (msg.MsgType) {
+                    case RspSync.AddMsg.TYPE_TEXT: {
+                        if (msg.SubMsgType == 0) {
+                            return parseCommon(msg, new WXText());
+                        } else if (msg.SubMsgType == 48) {
+                            WXLocation wxLocation = parseCommon(msg, new WXLocation());
+                            wxLocation.locationName = wxLocation.content.substring(0, wxLocation.content.indexOf(':'));
+                            wxLocation.locationImage = String.format("https://%s%s", wxAPI.host, wxLocation.content.substring(wxLocation.content.indexOf(':') + ":<br/>".length()));
+                            wxLocation.locationUrl = msg.Url;
+                            return wxLocation;
+                        }
+                        break;
+                    }
+                    case RspSync.AddMsg.TYPE_IMAGE: {
+                        WXImage wxImage = parseCommon(msg, new WXImage());
+                        wxImage.imgWidth = msg.ImgWidth;
+                        wxImage.imgHeight = msg.ImgHeight;
+                        wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "slave");
+                        return wxImage;
+                    }
+                    case RspSync.AddMsg.TYPE_VOICE: {
+                        WXVoice wxVoice = parseCommon(msg, new WXVoice());
+                        wxVoice.voiceLength = msg.VoiceLength;
+                        return wxVoice;
+                    }
+                    case RspSync.AddMsg.TYPE_VERIFY: {
+                        WXVerify wxVerify = parseCommon(msg, new WXVerify());
+                        wxVerify.userId = msg.RecommendInfo.UserName;
+                        wxVerify.userName = msg.RecommendInfo.NickName;
+                        wxVerify.signature = msg.RecommendInfo.Signature;
+                        wxVerify.province = msg.RecommendInfo.Province;
+                        wxVerify.city = msg.RecommendInfo.City;
+                        wxVerify.gender = msg.RecommendInfo.Sex;
+                        wxVerify.verify = msg.RecommendInfo.VerifyFlag;
+                        wxVerify.ticket = msg.RecommendInfo.Ticket;
+                        return wxVerify;
+                    }
+                    case RspSync.AddMsg.TYPE_RECOMMEND: {
+                        WXRecommend wxRecommend = parseCommon(msg, new WXRecommend());
+                        wxRecommend.userId = msg.RecommendInfo.UserName;
+                        wxRecommend.userName = msg.RecommendInfo.NickName;
+                        wxRecommend.gender = msg.RecommendInfo.Sex;
+                        wxRecommend.signature = msg.RecommendInfo.Signature;
+                        wxRecommend.province = msg.RecommendInfo.Province;
+                        wxRecommend.city = msg.RecommendInfo.City;
+                        wxRecommend.verifyFlag = msg.RecommendInfo.VerifyFlag;
+                        return wxRecommend;
+                    }
+                    case RspSync.AddMsg.TYPE_VIDEO: {
+                        //视频貌似可以分片，后期测试
+                        WXVideo wxVideo = parseCommon(msg, new WXVideo());
+                        wxVideo.imgWidth = msg.ImgWidth;
+                        wxVideo.imgHeight = msg.ImgHeight;
+                        wxVideo.videoLength = msg.PlayLength;
+                        wxVideo.image = wxAPI.webwxgetmsgimg(msg.MsgId, "slave");
+                        return wxVideo;
+                    }
+                    case RspSync.AddMsg.TYPE_EMOJI: {
+                        WXImage wxImage = parseCommon(msg, new WXImage());
+                        wxImage.imgWidth = msg.ImgWidth;
+                        wxImage.imgHeight = msg.ImgHeight;
+                        wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                        return wxImage;
+                    }
+                    case RspSync.AddMsg.TYPE_OTHER: {
+                        if (msg.AppMsgType == 2) {
+                            WXImage wxImage = parseCommon(msg, new WXImage());
+                            wxImage.imgWidth = msg.ImgWidth;
+                            wxImage.imgHeight = msg.ImgHeight;
+                            wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                            return wxImage;
+                        } else if (msg.AppMsgType == 5) {
+                            WXLink wxLink = parseCommon(msg, new WXLink());
+                            wxLink.linkName = msg.FileName;
+                            wxLink.linkUrl = msg.Url;
+                            return wxLink;
+                        } else if (msg.AppMsgType == 6) {
+                            WXFile wxFile = parseCommon(msg, new WXFile());
+                            wxFile.fileId = msg.MediaId;
+                            wxFile.fileName = msg.FileName;
+                            wxFile.fileSize = XTools.strEmpty(msg.FileSize) ? 0 : Long.valueOf(msg.FileSize);
+                            return wxFile;
+                        } else if (msg.AppMsgType == 8) {
+                            WXImage wxImage = parseCommon(msg, new WXImage());
+                            wxImage.imgWidth = msg.ImgWidth;
+                            wxImage.imgHeight = msg.ImgHeight;
+                            wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                            return wxImage;
+                        } else if (msg.AppMsgType == 2000) {
+                            return parseCommon(msg, new WXMoney());
+                        }
+                        break;
+                    }
+                    case RspSync.AddMsg.TYPE_NOTIFY: {
+                        WXNotify wxNotify = parseCommon(msg, new WXNotify());
+                        wxNotify.notifyCode = msg.StatusNotifyCode;
+                        wxNotify.notifyContact = msg.StatusNotifyUserName;
+                        return wxNotify;
+                    }
+                    case RspSync.AddMsg.TYPE_SYSTEM: {
+                        return parseCommon(msg, new WXSystem());
+                    }
+                    case RspSync.AddMsg.TYPE_REVOKE:
+                        WXRevoke wxRevoke = parseCommon(msg, new WXRevoke());
+                        Matcher idMatcher = REX_REVOKE_ID.matcher(wxRevoke.content);
+                        if (idMatcher.find()) {
+                            wxRevoke.msgId = Long.valueOf(idMatcher.group(1));
+                        }
+                        Matcher replaceMatcher = REX_REVOKE_REPLACE.matcher(wxRevoke.content);
+                        if (replaceMatcher.find()) {
+                            wxRevoke.msgReplace = replaceMatcher.group(1);
+                        }
+                        return wxRevoke;
+                    default:
+                        break;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                LOGGER.warning("消息解析失败");
+            }
+            return parseCommon(msg, new WXUnknown());
         }
     }
 }

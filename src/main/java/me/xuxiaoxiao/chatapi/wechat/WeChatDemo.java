@@ -1,9 +1,9 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.chatapi.wechat.protocol.RspInit;
+import com.google.gson.Gson;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.WXMessage;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Scanner;
 
@@ -20,16 +20,12 @@ public class WeChatDemo {
         @Override
         public void onLogin() {
             System.out.println("onLogin");
-            System.out.println(String.format("您有%d名好友、关注%d个公众号、活跃微信群%d个", wechatClient.userFriends().size(), wechatClient.userPublics().size(), wechatClient.userChatrooms().size()));
+            System.out.println(String.format("您有%d名好友、活跃微信群%d个", wechatClient.userFriends().size(), wechatClient.userGroups().size()));
         }
 
         @Override
-        public void onMessageText(String msgId, RspInit.User userWhere, RspInit.User userFrom, String text) {
-            System.out.println("onMessageText:" + text);
-            //学习别人说话
-            if (!userFrom.UserName.equals(wechatClient.userMe().UserName)) {
-                wechatClient.sendText(userWhere.UserName, text);
-            }
+        public void onMessage(WXMessage message) {
+            System.out.println("获取到消息:" + new Gson().toJson(message));
         }
     });
 
@@ -49,15 +45,11 @@ public class WeChatDemo {
                 }
                 break;
                 case "sendImage": {
-                    try {
-                        System.out.println("toUserName:");
-                        String toUserName = scanner.nextLine();
-                        System.out.println("imagePath:");
-                        File image = new File(scanner.nextLine());
-                        wechatClient.sendImage(toUserName, image);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    System.out.println("toUserName:");
+                    String toUserName = scanner.nextLine();
+                    System.out.println("imagePath:");
+                    File image = new File(scanner.nextLine());
+                    wechatClient.sendImage(toUserName, image);
                 }
                 break;
                 case "revokeMsg": {
@@ -94,29 +86,29 @@ public class WeChatDemo {
                     wechatClient.editRemark(userName, remark);
                 }
                 break;
-                case "createChatroom": {
+                case "createGroup": {
                     System.out.println("topic:");
                     String topic = scanner.nextLine();
                     System.out.println("members,split by ',':");
                     String members = scanner.nextLine();
-                    String chatroomName = wechatClient.createChatroom(topic, Arrays.asList(members.split(",")));
+                    String chatroomName = wechatClient.createGroup(topic, Arrays.asList(members.split(",")));
                     System.out.println("create chatroom " + chatroomName);
                 }
                 break;
-                case "addChatroomMember": {
+                case "addGroupMember": {
                     System.out.println("chatRoomName:");
                     String chatroomName = scanner.nextLine();
                     System.out.println("members,split by ',':");
                     String members = scanner.nextLine();
-                    wechatClient.addChatroomMember(chatroomName, Arrays.asList(members.split(",")));
+                    wechatClient.addGroupMember(chatroomName, Arrays.asList(members.split(",")));
                 }
                 break;
-                case "delChatroomMember": {
+                case "delGroupMember": {
                     System.out.println("chatRoomName:");
                     String chatroomName = scanner.nextLine();
                     System.out.println("members,split by ',':");
                     String members = scanner.nextLine();
-                    wechatClient.delChatroomMember(chatroomName, Arrays.asList(members.split(",")));
+                    wechatClient.delGroupMember(chatroomName, Arrays.asList(members.split(",")));
                 }
                 break;
                 case "quit":

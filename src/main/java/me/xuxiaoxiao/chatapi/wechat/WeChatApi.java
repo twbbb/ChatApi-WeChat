@@ -1,5 +1,7 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.ReqBatchGetContact.Contact;
 import me.xuxiaoxiao.xtools.common.XTools;
@@ -19,20 +21,26 @@ import java.util.regex.Pattern;
  * 网页版微信全部接口
  */
 final class WeChatApi {
+    private static final Gson GSON = new GsonBuilder().create();
+    private static final Pattern REX_LOGIN = Pattern.compile("<error>[\\s\\S]+</error>");
     private static final String HOST_V1 = "wx.qq.com";
     private static final String HOST_V2 = "wx2.qq.com";
+    private static final String HOST_V3 = "wx8.qq.com";
+    private static final String HOST_V4 = "web.wechat.com";
+    private static final String HOST_V5 = "web2.wechat.com";
 
     private final long TIME_INIT = System.currentTimeMillis();
     private final AtomicBoolean FIRST_LOGIN = new AtomicBoolean(true);
     private final File folder;
 
+    String host;
     String uin;
     String sid;
     String dataTicket;
     XOption httpOption = new XOption(90 * 1000, 90 * 1000);
+
     private long time = TIME_INIT;
     private int file = 0;
-    private String host;
     private String uuid;
     private String skey;
     private String passticket;
@@ -56,7 +64,7 @@ final class WeChatApi {
         request.query("redirect_uri", "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxnewloginpage");
         String rspStr = XTools.http(httpOption, request).string();
         if (XTools.strEmpty(rspStr)) {
-            throw new RuntimeException("获取登录二维码出错，请检查https相关设置");
+            throw new IllegalStateException("获取登录二维码出错");
         } else {
             this.uuid = rspStr.substring(rspStr.indexOf('"') + 1, rspStr.lastIndexOf('"'));
             return "https://login.weixin.qq.com/qrcode/" + uuid;
@@ -79,8 +87,16 @@ final class WeChatApi {
         if (!XTools.strEmpty(rspLogin.redirectUri)) {
             if (rspLogin.redirectUri.contains(HOST_V1)) {
                 this.host = HOST_V1;
-            } else {
+            } else if (rspLogin.redirectUri.contains(HOST_V2)) {
                 this.host = HOST_V2;
+            } else if (rspLogin.redirectUri.contains(HOST_V3)) {
+                this.host = HOST_V3;
+            } else if (rspLogin.redirectUri.contains(HOST_V4)) {
+                this.host = HOST_V4;
+            } else if (rspLogin.redirectUri.contains(HOST_V5)) {
+                this.host = HOST_V5;
+            } else {
+                throw new IllegalStateException("未知主机");
             }
         }
         return rspLogin;
@@ -93,7 +109,7 @@ final class WeChatApi {
      */
     void webwxnewloginpage(String url) {
         String rspStr = XTools.http(httpOption, XRequest.GET(url)).string();
-        if (!XTools.strEmpty(rspStr) && Pattern.compile("<error>.+</error>").matcher(rspStr).find()) {
+        if (!XTools.strEmpty(rspStr) && REX_LOGIN.matcher(rspStr).find()) {
             this.uin = rspStr.substring(rspStr.indexOf("<wxuin>") + "<wxuin>".length(), rspStr.indexOf("</wxuin>"));
             this.sid = rspStr.substring(rspStr.indexOf("<wxsid>") + "<wxsid>".length(), rspStr.indexOf("</wxsid>"));
             this.skey = rspStr.substring(rspStr.indexOf("<skey>") + "<skey>".length(), rspStr.indexOf("</skey>"));
@@ -110,8 +126,8 @@ final class WeChatApi {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxinit", host));
         request.query("r", (int) (~(this.TIME_INIT)));
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqInit(new BaseRequest(uin, sid, skey)))));
-        RspInit rspInit = WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspInit.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqInit(new BaseRequest(uin, sid, skey)))));
+        RspInit rspInit = GSON.fromJson(XTools.http(httpOption, request).string(), RspInit.class);
         this.skey = rspInit.SKey;
         this.synckey = rspInit.SyncKey;
         return rspInit;
@@ -126,8 +142,8 @@ final class WeChatApi {
     RspStatusNotify webwxstatusnotify(String MyName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxstatusnotify", host));
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqStatusNotify(new BaseRequest(uin, sid, skey), 3, MyName))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspStatusNotify.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqStatusNotify(new BaseRequest(uin, sid, skey), 3, MyName))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspStatusNotify.class);
     }
 
     /**
@@ -141,7 +157,7 @@ final class WeChatApi {
         request.query("seq", 0);
         request.query("skey", this.skey);
         request.query("pass_ticket", this.passticket);
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspGetContact.class);
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspGetContact.class);
     }
 
     /**
@@ -155,8 +171,8 @@ final class WeChatApi {
         request.query("r", System.currentTimeMillis());
         request.query("type", "ex");
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqBatchGetContact(new BaseRequest(uin, sid, skey), contactList))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspBatchGetContact.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqBatchGetContact(new BaseRequest(uin, sid, skey), contactList))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspBatchGetContact.class);
     }
 
     /**
@@ -186,8 +202,8 @@ final class WeChatApi {
         request.query("sid", this.sid);
         request.query("skey", this.skey);
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqSync(new BaseRequest(uin, sid, skey), this.synckey))));
-        RspSync rspSync = WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspSync.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqSync(new BaseRequest(uin, sid, skey), this.synckey))));
+        RspSync rspSync = GSON.fromJson(XTools.http(httpOption, request).string(), RspSync.class);
         this.synckey = rspSync.SyncCheckKey;
         return rspSync;
     }
@@ -201,8 +217,8 @@ final class WeChatApi {
     RspSendMsg webwxsendmsg(ReqSendMsg.Msg msg) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxsendmsg", host));
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqSendMsg(new BaseRequest(uin, sid, skey), msg))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspSendMsg.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqSendMsg(new BaseRequest(uin, sid, skey), msg))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspSendMsg.class);
     }
 
     /**
@@ -216,8 +232,8 @@ final class WeChatApi {
         request.query("fun", "async");
         request.query("f", "json");
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqSendMsg(new BaseRequest(uin, sid, skey), msg))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspSendMsg.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqSendMsg(new BaseRequest(uin, sid, skey), msg))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspSendMsg.class);
     }
 
     /**
@@ -230,8 +246,8 @@ final class WeChatApi {
      */
     RspRevokeMsg webwxrevokemsg(String clientMsgId, String serverMsgId, String userName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxrevokemsg", host));
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqRevokeMsg(new BaseRequest(uin, sid, skey), clientMsgId, serverMsgId, userName))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspRevokeMsg.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqRevokeMsg(new BaseRequest(uin, sid, skey), clientMsgId, serverMsgId, userName))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspRevokeMsg.class);
     }
 
     /**
@@ -241,13 +257,13 @@ final class WeChatApi {
      * @param type  图片的类型，slave：小图，big：大图，不传该参数则默认获取大图
      * @return 获取到的图片文件
      */
-    File webwxgetmsgimg(String msgId, String type) {
+    File webwxgetmsgimg(long msgId, String type) {
         XRequest request = XRequest.GET(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxgetmsgimg", host));
         request.query("MsgID", msgId);
         request.query("skey", skey);
         request.query("type", type);
         request.query("pass_ticket", passticket);
-        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("img-%s-%s", msgId, String.valueOf(type)));
+        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("image-%s-%s", String.valueOf(type), msgId));
     }
 
     /**
@@ -256,12 +272,12 @@ final class WeChatApi {
      * @param msgId 消息ID
      * @return 获取到的语音文件
      */
-    File webwxgetvoice(String msgId) {
+    File webwxgetvoice(long msgId) {
         XRequest request = XRequest.GET(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxgetvoice", host));
         request.query("msgid", msgId);
         request.query("skey", skey);
         request.query("pass_ticket", passticket);
-        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("voice-%s", msgId));
+        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("voice-%s.mp3", msgId));
     }
 
     /**
@@ -270,12 +286,24 @@ final class WeChatApi {
      * @param msgId 消息ID
      * @return 获取到的视频文件
      */
-    File webwxgetvideo(String msgId) {
+    File webwxgetvideo(long msgId) {
         XRequest request = XRequest.GET(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxgetvideo", host));
         request.query("msgid", msgId);
         request.query("skey", this.skey);
         request.query("pass_ticket", this.passticket);
-        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("video-%s", msgId));
+        request.header("Range", "bytes=0-");
+        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("video-%d.mp4", msgId));
+    }
+
+    File webwxgetmedia(long msgId, String filename, String mediaId, String sender) {
+        XRequest request = XRequest.GET(String.format("https://file.%s/cgi-bin/mmwebwx-bin/webwxgetmedia", host));
+        request.query("encryfilename", filename);
+        request.query("fromuser", this.uin);
+        request.query("mediaid", mediaId);
+        request.query("pass_ticket", this.passticket);
+        request.query("sender", sender);
+        request.query("webwx_data_ticket", this.dataTicket);
+        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("media-%d%s", msgId, filename.substring(filename.lastIndexOf('.'))));
     }
 
     /**
@@ -290,8 +318,8 @@ final class WeChatApi {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxverifyuser", host));
         request.query("r", System.currentTimeMillis());
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqVerifyUser(new BaseRequest(uin, sid, skey), opCode, userName, verifyTicket, verifyContent))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspVerifyUser.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqVerifyUser(new BaseRequest(uin, sid, skey), opCode, userName, verifyTicket, verifyContent))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspVerifyUser.class);
     }
 
     /**
@@ -304,8 +332,8 @@ final class WeChatApi {
     RspOplog webwxoplog(String userName, String remarkName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxoplog", host));
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqOplog(new BaseRequest(uin, sid, skey), userName, remarkName))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspOplog.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqOplog(new BaseRequest(uin, sid, skey), userName, remarkName))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspOplog.class);
     }
 
     /**
@@ -319,8 +347,8 @@ final class WeChatApi {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxcreatechatroom", host));
         request.query("r", System.currentTimeMillis());
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqCreateChatroom(new BaseRequest(uin, sid, skey), topic, memberList))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspCreateChatroom.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqCreateChatroom(new BaseRequest(uin, sid, skey), topic, memberList))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspCreateChatroom.class);
     }
 
     /**
@@ -335,8 +363,8 @@ final class WeChatApi {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxupdatechatroom", host));
         request.query("fun", fun);
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, WeChatTools.GSON.toJson(new ReqUpdateChatroom(new BaseRequest(uin, sid, skey), chatroom, fun, XTools.strJoin(memberList, ",")))));
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspUpdateChatroom.class);
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqUpdateChatroom(new BaseRequest(uin, sid, skey), chatroom, fun, XTools.strJoin(memberList, ",")))));
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspUpdateChatroom.class);
     }
 
     /**
@@ -358,10 +386,10 @@ final class WeChatApi {
         request.content("lastModifiedDate", new Date(file.lastModified()));
         request.content("size", file.length());
         request.content("mediatype", mediatype);
-        request.content("uploadmediarequest", WeChatTools.GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey), 2, file.length(), 0, file.length(), XTools.md5(file), 4, fromUserName, toUserName)));
+        request.content("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey), 2, file.length(), 0, file.length(), XTools.md5(file), 4, fromUserName, toUserName)));
         request.content("webwx_data_ticket", dataTicket);
         request.content("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket);
         request.content("filename", file);
-        return WeChatTools.GSON.fromJson(XTools.http(httpOption, request).string(), RspUploadMedia.class);
+        return GSON.fromJson(XTools.http(httpOption, request).string(), RspUploadMedia.class);
     }
 }

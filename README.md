@@ -129,7 +129,7 @@ public class WeChatDemo {
                     wechatClient.editRemark(userName, remark);
                 }
                 break;
-                case "createChatroom": {
+                case createGroup: {
                     System.out.println("topic:");
                     String topic = scanner.nextLine();
                     System.out.println("members,split by ',':");
@@ -138,7 +138,7 @@ public class WeChatDemo {
                     System.out.println("create chatroom " + chatroomName);
                 }
                 break;
-                case "addChatroomMember": {
+                case addGroupMember: {
                     System.out.println("chatRoomName:");
                     String chatroomName = scanner.nextLine();
                     System.out.println("members,split by ',':");
@@ -146,7 +146,7 @@ public class WeChatDemo {
                     wechatClient.addChatroomMember(chatroomName, Arrays.asList(members.split(",")));
                 }
                 break;
-                case "delChatroomMember": {
+                case delGroupMember: {
                     System.out.println("chatRoomName:");
                     String chatroomName = scanner.nextLine();
                     System.out.println("members,split by ',':");

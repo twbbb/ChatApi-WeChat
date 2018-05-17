@@ -41,7 +41,53 @@ public class RspSync {
     }
 
     public static class AddMsg {
-        public String MsgId;
+        /**
+         * 文字消息
+         */
+        public static final int TYPE_TEXT = 1;
+        /**
+         * 图片消息
+         */
+        public static final int TYPE_IMAGE = 3;
+        /**
+         * 语音消息
+         */
+        public static final int TYPE_VOICE = 34;
+        /**
+         * 好友请求
+         */
+        public static final int TYPE_VERIFY = 37;
+        /**
+         * 名片消息
+         */
+        public static final int TYPE_RECOMMEND = 42;
+        /**
+         * 视频消息
+         */
+        public static final int TYPE_VIDEO = 43;
+        /**
+         * 收藏的表情
+         */
+        public static final int TYPE_EMOJI = 47;
+        /**
+         * 转账、文件、链接、笔记等
+         */
+        public static final int TYPE_OTHER = 49;
+
+        /**
+         * 消息已读
+         */
+        public static final int TYPE_NOTIFY = 51;
+        /**
+         * 系统消息
+         */
+        public static final int TYPE_SYSTEM = 10000;
+        /**
+         * 系统消息，撤回消息
+         */
+        public static final int TYPE_REVOKE = 10002;
+
+        public long MsgId;
         public String FromUserName;
         public String ToUserName;
         public int MsgType;
@@ -50,7 +96,7 @@ public class RspSync {
         public int ImgStatus;
         public long CreateTime;
         public long VoiceLength;
-        public long PlayLength;
+        public int PlayLength;
         public String FileName;
         public String FileSize;
         public String MediaId;

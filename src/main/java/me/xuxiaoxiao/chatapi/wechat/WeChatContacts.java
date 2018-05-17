@@ -1,163 +1,150 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXContact;
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXGroup;
+import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
 import me.xuxiaoxiao.chatapi.wechat.protocol.RspInit;
 
-import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 /**
  * 模拟网页微信客户端联系人
  */
+@SuppressWarnings("unchecked")
 final class WeChatContacts {
-    private final ConcurrentHashMap<String, RspInit.User> friends = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, RspInit.User> publics = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, RspInit.User> chatrooms = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, RspInit.User> contacts = new ConcurrentHashMap<>();
-    private RspInit.User me;
+    private final HashMap<String, WXContact> contacts = new HashMap<>();
+    private final HashMap<String, WXUser> friends = new HashMap<>();
+    private final HashMap<String, WXGroup> groups = new HashMap<>();
+    private WXUser me;
+
+    private static <T extends WXContact> T parseContact(String host, RspInit.User contact) {
+        if (contact.UserName.startsWith("@@")) {
+            WXGroup group = new WXGroup();
+            group.id = contact.UserName;
+            group.name = contact.NickName;
+            group.namePY = contact.PYInitial;
+            group.nameQP = contact.PYQuanPin;
+            group.avatar = String.format("https://%s%s", host, contact.HeadImgUrl);
+            group.contactFlag = contact.ContactFlag;
+            group.isOwner = contact.IsOwner > 0;
+            group.members = new HashMap<>();
+            for (RspInit.User user : contact.MemberList) {
+                WXGroup.Member member = new WXGroup.Member();
+                member.id = user.UserName;
+                member.name = user.NickName;
+                member.display = user.DisplayName;
+                group.members.put(member.id, member);
+            }
+            return (T) group;
+        } else {
+            WXUser user = new WXUser();
+            user.id = contact.UserName;
+            user.name = contact.NickName;
+            user.namePY = contact.PYInitial;
+            user.nameQP = contact.PYQuanPin;
+            user.avatar = String.format("https://%s%s", host, contact.HeadImgUrl);
+            user.contactFlag = contact.ContactFlag;
+            user.gender = contact.Sex;
+            user.signature = contact.Signature;
+            user.remark = contact.RemarkName;
+            user.remarkPY = contact.RemarkPYInitial;
+            user.remarkQP = contact.RemarkPYQuanPin;
+            user.province = contact.Province;
+            user.city = contact.City;
+            user.verifyFlag = contact.VerifyFlag;
+            return (T) user;
+        }
+    }
 
     /**
      * 获取自身信息
      *
      * @return 自身信息
      */
-    RspInit.User getMe() {
+    WXUser getMe() {
         return this.me;
-    }
-
-    /**
-     * 设置自身信息
-     *
-     * @param me 自身信息
-     */
-    void setMe(RspInit.User me) {
-        this.me = me;
-        this.contacts.put(me.UserName, me);
-        WeChatTools.LOGGER.finer(String.format("获取到自身信息：%s", WeChatTools.GSON.toJson(me)));
     }
 
     /**
      * 获取好友信息
      *
-     * @param UserName 好友UserName
+     * @param id 好友id
      * @return 好友信息
      */
-    RspInit.User getFriend(String UserName) {
-        return this.friends.get(UserName);
+    WXUser getFriend(String id) {
+        return this.friends.get(id);
     }
 
     /**
-     * 获取好友列表
+     * 获取所有好友
      *
-     * @return 好友列表
+     * @return 所有好友
      */
-    ArrayList<RspInit.User> getFriends() {
-        ArrayList<RspInit.User> friendList = new ArrayList<>();
-        for (String key : friends.keySet()) {
-            friendList.add(friends.get(key));
-        }
-        return friendList;
+    HashMap<String, WXUser> getFriends() {
+        return this.friends;
     }
 
     /**
-     * 获取公众号信息
+     * 获取群信息
      *
-     * @param UserName 公众号UserName
-     * @return 公众号信息
+     * @param id 群id
+     * @return 群信息
      */
-    RspInit.User getPublic(String UserName) {
-        return this.publics.get(UserName);
+    WXGroup getGroup(String id) {
+        return this.groups.get(id);
     }
 
     /**
-     * 获取公众号列表
+     * 获取所有群
      *
-     * @return 公众号列表
+     * @return 所有群
      */
-    ArrayList<RspInit.User> getPublics() {
-        ArrayList<RspInit.User> publicList = new ArrayList<>();
-        for (String key : publics.keySet()) {
-            publicList.add(publics.get(key));
-        }
-        return publicList;
+    HashMap<String, WXGroup> getGroups() {
+        return this.groups;
     }
 
     /**
-     * 获取聊天室信息
+     * 获取联系人信息
      *
-     * @param UserName 聊天室UserName
-     * @return 聊天室信息
-     */
-    RspInit.User getChatroom(String UserName) {
-        return this.chatrooms.get(UserName);
-    }
-
-    /**
-     * 获取聊天室列表
-     *
-     * @return 聊天室列表
-     */
-    ArrayList<RspInit.User> getChatrooms() {
-        ArrayList<RspInit.User> chatroomList = new ArrayList<>();
-        for (String key : chatrooms.keySet()) {
-            chatroomList.add(chatrooms.get(key));
-        }
-        return chatroomList;
-    }
-
-    /**
-     * 添加联系人，自动归类
-     *
-     * @param contact 联系人信息
-     */
-    void addContact(RspInit.User contact) {
-        contacts.put(contact.UserName, contact);
-        if (contact.UserName.startsWith("@@")) {
-            chatrooms.put(contact.UserName, contact);
-            StringBuilder members = new StringBuilder("\n");
-            for (RspInit.User member : contact.MemberList) {
-                members.append(String.format("%s（%s）\n", member.NickName, member.UserName));
-                contacts.put(member.UserName, member);
-            }
-            WeChatTools.LOGGER.finer(String.format("获取到微信群：%s（%s），群成员：%s", contact.NickName, contact.UserName, members));
-        } else if (contact.VerifyFlag > 0) {
-            publics.put(contact.UserName, contact);
-            WeChatTools.LOGGER.finer(String.format("获取到微信公众号：%s（%s）", contact.NickName, contact.UserName));
-        } else if (contact.ContactFlag > 0) {
-            friends.put(contact.UserName, contact);
-            WeChatTools.LOGGER.finer(String.format("获取到微信好友：%s（%s）", contact.NickName, contact.UserName));
-        }
-    }
-
-    /**
-     * 获取联系人信息，自动分类
-     *
-     * @param UserName 联系人UserName
+     * @param userId 联系人id
      * @return 联系人信息
      */
-    RspInit.User getContact(String UserName) {
-        if (UserName.startsWith("@@")) {
-            if (this.chatrooms.containsKey(UserName)) {
-                return this.chatrooms.get(UserName);
-            }
+    WXContact getContact(String userId) {
+        return this.contacts.get(userId);
+    }
+
+    /**
+     * 设置自身信息
+     *
+     * @param userMe 自身信息
+     */
+    void setMe(String host, RspInit.User userMe) {
+        this.me = WeChatContacts.parseContact(host, userMe);
+        this.contacts.put(this.me.id, this.me);
+    }
+
+    void putContact(String host, RspInit.User userContact) {
+        WXContact contact = WeChatContacts.parseContact(host, userContact);
+        this.contacts.put(contact.id, contact);
+        if (contact instanceof WXGroup) {
+            WXGroup group = (WXGroup) contact;
+            groups.put(group.id, group);
         } else {
-            if (this.friends.containsKey(UserName)) {
-                return this.friends.get(UserName);
-            } else if (this.publics.containsKey(UserName)) {
-                return this.publics.get(UserName);
+            WXUser user = (WXUser) contact;
+            if ((user.contactFlag & WXContact.CONTACT) > 0) {
+                friends.put(user.id, user);
             }
         }
-        return this.contacts.get(UserName);
     }
 
     /**
      * 移除联系人
      *
-     * @param UserName 联系人UserName
+     * @param userId 联系人id
      */
-    void rmvContact(String UserName) {
-        this.friends.remove(UserName);
-        this.publics.remove(UserName);
-        this.chatrooms.remove(UserName);
-        this.contacts.remove(UserName);
+    void rmvContact(String userId) {
+        this.groups.remove(userId);
+        this.friends.remove(userId);
+        this.contacts.remove(userId);
     }
 }
