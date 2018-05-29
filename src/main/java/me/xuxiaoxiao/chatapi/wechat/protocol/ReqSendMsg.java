@@ -13,17 +13,21 @@ public class ReqSendMsg {
 
     public static class Msg {
         public int Type;
+        public Integer EmojiFlag;
         public String MediaId;
         public String Content;
+        public String Signature;
         public String FromUserName;
         public String ToUserName;
         public String LocalID;
         public String ClientMsgId;
 
-        public Msg(int type, String mediaId, String content, String fromUserName, String toUserName) {
+        public Msg(int type, String mediaId, Integer emojiFlag, String content, String signature, String fromUserName, String toUserName) {
             this.Type = type;
             this.MediaId = mediaId;
+            this.EmojiFlag = emojiFlag;
             this.Content = content;
+            this.Signature = signature;
             this.FromUserName = fromUserName;
             this.ToUserName = toUserName;
             this.LocalID = msgId();

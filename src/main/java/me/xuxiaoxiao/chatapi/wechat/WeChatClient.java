@@ -145,22 +145,64 @@ public final class WeChatClient {
      */
     public void sendText(String contactId, String text) {
         LOGGER.info(String.format("向（%s）发送消息：%s", contactId, text));
-        wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, text, wxContacts.getMe().id, contactId));
+        wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, contactId));
     }
 
-    /**
-     * 发送图片消息
-     *
-     * @param contactId 目标联系人的id
-     * @param image     图片文件
-     */
-    public void sendImage(String contactId, File image) {
-        try {
-            LOGGER.info(String.format("向（%s）发送图片：%s", contactId, image.getAbsolutePath()));
-            RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().id, contactId, image, "pic");
-            wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, rspUploadMedia.MediaId, "", wxContacts.getMe().id, contactId));
-        } catch (IOException e) {
-            e.printStackTrace();
+    public void sendFile(String contactId, File file) {
+        if (WeChatTools.fileSuffix(file).equals("mp4") && file.length() >= 20L * 1024L * 1024L) {
+            LOGGER.warning(String.format("向（%s）发送的视频文件大于20M，无法发送", contactId));
+        } else {
+            try {
+                LOGGER.info(String.format("向（%s）发送文件：%s", contactId, file.getAbsolutePath()));
+                String mediaId = null, aesKey = null, signature = null;
+                if (file.length() >= 25L * 1024L * 1024L) {
+                    RspCheckUpload rspCheckUpload = wxAPI.webwxcheckupload(file, wxContacts.getMe().id, contactId);
+                    mediaId = rspCheckUpload.MediaId;
+                    aesKey = rspCheckUpload.AESKey;
+                    signature = rspCheckUpload.Signature;
+                }
+                if (XTools.strEmpty(mediaId)) {
+                    RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().id, contactId, file, aesKey, signature);
+                    mediaId = rspUploadMedia.MediaId;
+                }
+                if (!XTools.strEmpty(mediaId)) {
+                    switch (WeChatTools.fileType(file)) {
+                        case "pic":
+                            wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, mediaId, null, "", signature, wxContacts.getMe().id, contactId));
+                            break;
+                        case "video":
+                            wxAPI.webwxsendvideomsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_VIDEO, mediaId, null, "", signature, wxContacts.getMe().id, contactId));
+                            break;
+                        default:
+                            if (WeChatTools.fileSuffix(file).equals("gif")) {
+                                wxAPI.webwxsendemoticon(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_EMOJI, mediaId, 2, "", signature, wxContacts.getMe().id, contactId));
+                            } else {
+                                StringBuilder sbAppMsg = new StringBuilder();
+                                sbAppMsg.append("<appmsg appid='wxeb7ec651dd0aefa9' sdkver=''>");
+                                sbAppMsg.append("<title>").append(file.getName()).append("</title>");
+                                sbAppMsg.append("<des></des>");
+                                sbAppMsg.append("<action></action>");
+                                sbAppMsg.append("<type>6</type>");
+                                sbAppMsg.append("<content></content>");
+                                sbAppMsg.append("<url></url>");
+                                sbAppMsg.append("<lowurl></lowurl>");
+                                sbAppMsg.append("<appattach>");
+                                sbAppMsg.append("<totallen>").append(file.length()).append("</totallen>");
+                                sbAppMsg.append("<attachid>").append(mediaId).append("</attachid>");
+                                sbAppMsg.append("<fileext>").append(XTools.strEmpty(WeChatTools.fileSuffix(file)) ? "undefined" : WeChatTools.fileSuffix(file)).append("</fileext>");
+                                sbAppMsg.append("</appattach>");
+                                sbAppMsg.append("<extinfo></extinfo>");
+                                sbAppMsg.append("</appmsg>");
+                                wxAPI.webwxsendappmsg(new ReqSendMsg.Msg(6, null, null, sbAppMsg.toString(), signature, wxContacts.getMe().id, contactId));
+                            }
+                            break;
+                    }
+                } else {
+                    LOGGER.severe(String.format("向（%s）发送的文件发送失败", contactId));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -182,7 +224,7 @@ public final class WeChatClient {
      * @param wxImage 要获取大图的图片消息
      */
     public void fetchImage(WXImage wxImage) {
-        wxImage.image = wxAPI.webwxgetmsgimg(wxImage.id, "big");
+        wxImage.origin = wxAPI.webwxgetmsgimg(wxImage.id, "big");
     }
 
     public void fetchVoice(WXVoice wxVoice) {
@@ -423,6 +465,12 @@ public final class WeChatClient {
                 RspInit rspInit = wxAPI.webwxinit();
                 wxContacts.setMe(wxAPI.host, rspInit.User);
 
+                //添加初始联系人，特殊账号等
+                LOGGER.finer("正在添加初始联系人，特殊账号等");
+                for (RspInit.User user : rspInit.ContactList) {
+                    wxContacts.putContact(wxAPI.host, user);
+                }
+
                 //获取好友、群、公众号列表
                 LOGGER.finer("正在获取好友、群、公众号列表");
                 RspGetContact rspGetContact = wxAPI.webwxgetcontact();
@@ -430,20 +478,21 @@ public final class WeChatClient {
                     wxContacts.putContact(wxAPI.host, user);
                 }
 
-                //获取联系人详细信息
-                LOGGER.finer("正在获取联系人详细信息");
+                //获取最近联系人
+                LOGGER.finer("正在获取最近联系人");
                 LinkedList<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
-                if (rspInit.ContactList != null) {
-                    for (RspInit.User user : rspInit.ContactList) {
-                        contacts.add(new ReqBatchGetContact.Contact(user.UserName, ""));
+                if (!XTools.strEmpty(rspInit.ChatSet)) {
+                    for (String userName : rspInit.ChatSet.split(",")) {
+                        contacts.add(new ReqBatchGetContact.Contact(userName, ""));
                     }
                 }
                 loadContacts(contacts);
+
                 return null;
             } catch (Exception e) {
-                LOGGER.warning(String.format("初始化异常：%s", e.getMessage()));
                 e.printStackTrace();
-                return e.toString() + Arrays.toString(e.getStackTrace());
+                LOGGER.warning(String.format("初始化异常：%s", e.getMessage()));
+                return INIT_EXCEPTION;
             }
         }
 
@@ -476,18 +525,18 @@ public final class WeChatClient {
                         return null;
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
-                        if (rspSync.ModContactList != null) {
-                            //被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
-                            for (RspInit.User user : rspSync.ModContactList) {
-                                LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
-                                wxContacts.putContact(wxAPI.host, user);
-                            }
-                        }
                         if (rspSync.DelContactList != null) {
                             //删除好友，删除群后的任意一条消息
                             for (RspInit.User user : rspSync.DelContactList) {
                                 LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
                                 wxContacts.rmvContact(user.UserName);
+                            }
+                        }
+                        if (rspSync.ModContactList != null) {
+                            //被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
+                            for (RspInit.User user : rspSync.ModContactList) {
+                                LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
+                                wxContacts.putContact(wxAPI.host, user);
                             }
                         }
                         if (rspSync.ModChatRoomMemberList != null) {
@@ -507,7 +556,7 @@ public final class WeChatClient {
             } catch (Exception e) {
                 e.printStackTrace();
                 LOGGER.warning(String.format("监听消息异常：\n%s", Arrays.toString(e.getStackTrace())));
-                return e.toString();
+                return LISTEN_EXCEPTION;
             }
         }
 
@@ -642,6 +691,7 @@ public final class WeChatClient {
                         wxImage.imgWidth = msg.ImgWidth;
                         wxImage.imgHeight = msg.ImgHeight;
                         wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                        wxImage.origin = wxImage.image;
                         return wxImage;
                     }
                     case RspSync.AddMsg.TYPE_OTHER: {
@@ -650,6 +700,7 @@ public final class WeChatClient {
                             wxImage.imgWidth = msg.ImgWidth;
                             wxImage.imgHeight = msg.ImgHeight;
                             wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                            wxImage.origin = wxImage.image;
                             return wxImage;
                         } else if (msg.AppMsgType == 5) {
                             WXLink wxLink = parseCommon(msg, new WXLink());
@@ -667,6 +718,7 @@ public final class WeChatClient {
                             wxImage.imgWidth = msg.ImgWidth;
                             wxImage.imgHeight = msg.ImgHeight;
                             wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                            wxImage.origin = wxImage.image;
                             return wxImage;
                         } else if (msg.AppMsgType == 2000) {
                             return parseCommon(msg, new WXMoney());

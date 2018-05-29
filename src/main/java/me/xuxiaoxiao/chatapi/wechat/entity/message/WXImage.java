@@ -13,7 +13,11 @@ public class WXImage extends WXMessage implements Serializable, Cloneable {
      */
     public int imgHeight;
     /**
-     * 图片文件，一开始是缩略图，手动调用接口可获取大图（动态图一开始就是大图，无需再获取）
+     * 静态图消息中的缩略图，动态图消息中的原图
      */
     public File image;
+    /**
+     * 静态图刚开始为null，手动调用接口后为原图。动态图一开始就是原图
+     */
+    public File origin;
 }

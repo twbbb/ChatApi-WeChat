@@ -7,10 +7,14 @@ public class BaseRequest {
     public final String DeviceID;
 
     public BaseRequest(String uin, String sid, String skey) {
+        this(uin, sid, skey, deviceId());
+    }
+
+    public BaseRequest(String uin, String sid, String skey, String deviceID) {
         this.Uin = uin;
         this.Sid = sid;
         this.Skey = skey;
-        this.DeviceID = deviceId();
+        this.DeviceID = deviceID;
     }
 
     public static String deviceId() {
