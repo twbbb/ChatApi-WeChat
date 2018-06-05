@@ -3,7 +3,6 @@ package me.xuxiaoxiao.chatapi.wechat;
 import me.xuxiaoxiao.xtools.common.XTools;
 import me.xuxiaoxiao.xtools.common.http.XRequest;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -58,7 +57,7 @@ final class WeChatTools {
                         contentLength += String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, slice.fileName, CRLF).getBytes("utf-8").length;
                         contentLength += String.format("Content-Type: %s%s", slice.fileMime, CRLF).getBytes("utf-8").length;
                         contentLength += CRLF.getBytes("utf-8").length;
-                        contentLength += slice.slice.length;
+                        contentLength += slice.count;
                         contentLength += CRLF.getBytes("utf-8").length;
                     } else if (keyValue.value instanceof File) {
                         File file = (File) keyValue.value;
@@ -93,9 +92,7 @@ final class WeChatTools {
                     doStream.write(String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, slice.fileName, CRLF).getBytes("utf-8"));
                     doStream.write(String.format("Content-Type: %s%s", slice.fileMime, CRLF).getBytes("utf-8"));
                     doStream.write(CRLF.getBytes("utf-8"));
-                    try (ByteArrayInputStream biStream = new ByteArrayInputStream(slice.slice)) {
-                        XTools.streamToStream(biStream, doStream);
-                    }
+                    doStream.write(slice.slice, 0, slice.count);
                     doStream.write(CRLF.getBytes("utf-8"));
                 } else if (keyValue.value instanceof File) {
                     File file = (File) keyValue.value;
@@ -123,11 +120,13 @@ final class WeChatTools {
         public String fileName;
         public String fileMime;
         public byte[] slice;
+        public int count;
 
-        public Slice(String fileName, String fileMime, byte[] slice) {
+        public Slice(String fileName, String fileMime, byte[] slice, int count) {
             this.fileName = fileName;
             this.fileMime = fileMime;
             this.slice = slice;
+            this.count = count;
         }
     }
 }

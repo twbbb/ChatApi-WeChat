@@ -26,12 +26,8 @@ import java.util.regex.Pattern;
  */
 final class WeChatApi {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final String[] HOSTS = {"wx.qq.com", "wx2.qq.com", "wx8.qq.com", "web.wechat.com", "web2.wechat.com"};
     private static final Pattern REX_LOGIN = Pattern.compile("<error>[\\s\\S]+</error>");
-    private static final String HOST_V1 = "wx.qq.com";
-    private static final String HOST_V2 = "wx2.qq.com";
-    private static final String HOST_V3 = "wx8.qq.com";
-    private static final String HOST_V4 = "web.wechat.com";
-    private static final String HOST_V5 = "web2.wechat.com";
 
     private final long TIME_INIT = System.currentTimeMillis();
     private final AtomicBoolean FIRST_LOGIN = new AtomicBoolean(true);
@@ -41,7 +37,7 @@ final class WeChatApi {
     String uin;
     String sid;
     String dataTicket;
-    XOption httpOption = new XOption(90 * 1000, 90 * 1000) {
+    XOption httpOption = new XOption(60 * 1000, 90 * 1000) {
         @Override
         public CookieManager cookieManager() {
             return new CookieManager(null, CookiePolicy.ACCEPT_ALL);
@@ -94,17 +90,13 @@ final class WeChatApi {
         request.query("uuid", uuid);
         RspLogin rspLogin = new RspLogin(XTools.http(httpOption, request).string());
         if (!XTools.strEmpty(rspLogin.redirectUri)) {
-            if (rspLogin.redirectUri.contains(HOST_V1)) {
-                this.host = HOST_V1;
-            } else if (rspLogin.redirectUri.contains(HOST_V2)) {
-                this.host = HOST_V2;
-            } else if (rspLogin.redirectUri.contains(HOST_V3)) {
-                this.host = HOST_V3;
-            } else if (rspLogin.redirectUri.contains(HOST_V4)) {
-                this.host = HOST_V4;
-            } else if (rspLogin.redirectUri.contains(HOST_V5)) {
-                this.host = HOST_V5;
-            } else {
+            for (String host : HOSTS) {
+                if (rspLogin.redirectUri.contains(host)) {
+                    this.host = host;
+                    break;
+                }
+            }
+            if (XTools.strEmpty(host)) {
                 throw new IllegalStateException("未知主机");
             }
         }
@@ -145,7 +137,8 @@ final class WeChatApi {
     /**
      * 状态更新接口，登录登出，消息已读
      *
-     * @param userName 目标用户id
+     * @param userName   目标用户id
+     * @param notifyCode 状态码
      * @return 接口调用结果
      */
     RspStatusNotify webwxstatusnotify(String userName, int notifyCode) {
@@ -185,7 +178,7 @@ final class WeChatApi {
     }
 
     /**
-     * 同步检查接口，需要无限循环请求该接口，如果有消息要同步，则该接口立即返回并携带参数，否则将在60秒左右返回
+     * 同步检查接口，需要无限循环请求该接口，如果有消息要同步，则该接口立即返回并携带参数，否则将在60秒后返回
      *
      * @return 检查结果
      */
@@ -245,6 +238,12 @@ final class WeChatApi {
         return GSON.fromJson(XTools.http(httpOption, request).string(), RspSendMsg.class);
     }
 
+    /**
+     * 发送视频消息
+     *
+     * @param msg 需要发送的视频消息
+     * @return 发送的结果
+     */
     RspSendMsg webwxsendvideomsg(ReqSendMsg.Msg msg) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxsendvideomsg", host));
         request.query("fun", "async");
@@ -255,9 +254,9 @@ final class WeChatApi {
     }
 
     /**
-     * 发送图片消息
+     * 发送动态表情消息
      *
-     * @param msg 需要发送的图片消息
+     * @param msg 需要发送的动态表情消息
      * @return 发送的结果
      */
     RspSendMsg webwxsendemoticon(ReqSendMsg.Msg msg) {
@@ -270,9 +269,9 @@ final class WeChatApi {
     }
 
     /**
-     * 发送图片消息
+     * 发送文件附件消息
      *
-     * @param msg 需要发送的图片消息
+     * @param msg 需要发送的文件附件消息
      * @return 发送的结果
      */
     RspSendMsg webwxsendappmsg(ReqSendMsg.Msg msg) {
@@ -343,6 +342,15 @@ final class WeChatApi {
         return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("video-%d.mp4", msgId));
     }
 
+    /**
+     * 根据MsgId获取那条消息的附件文件
+     *
+     * @param msgId    消息ID
+     * @param filename 转码后的文件名
+     * @param mediaId  文件id
+     * @param sender   文件发送者
+     * @return 获取到的附件文件
+     */
     File webwxgetmedia(long msgId, String filename, String mediaId, String sender) {
         XRequest request = XRequest.GET(String.format("https://file.%s/cgi-bin/mmwebwx-bin/webwxgetmedia", host));
         request.query("encryfilename", filename);
@@ -355,10 +363,11 @@ final class WeChatApi {
     }
 
     /**
-     * 发送好友请求
+     * 发送或同意好友请求，现在发送好友请求功能已经失效
      *
-     * @param opCode        操作，2：发送好友申请，3：同意好友申请
+     * @param opCode        操作，2：发送好友申请（已失效），3：同意好友申请
      * @param userName      目标用户的UserName
+     * @param verifyTicket  验证票据
      * @param verifyContent 验证消息
      * @return 发送的结果
      */
@@ -385,21 +394,6 @@ final class WeChatApi {
     }
 
     /**
-     * 创建聊天室
-     *
-     * @param topic      聊天室的名称
-     * @param memberList 成员的UserName
-     * @return 创建的结果
-     */
-    RspCreateChatroom webwxcreatechatroom(String topic, List<String> memberList) {
-        XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxcreatechatroom", host));
-        request.query("r", System.currentTimeMillis());
-        request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqCreateChatroom(new BaseRequest(uin, sid, skey), topic, memberList))));
-        return GSON.fromJson(XTools.http(httpOption, request).string(), RspCreateChatroom.class);
-    }
-
-    /**
      * 添加或移除聊天室成员
      *
      * @param chatroom   聊天室的UserName
@@ -415,6 +409,14 @@ final class WeChatApi {
         return GSON.fromJson(XTools.http(httpOption, request).string(), RspUpdateChatroom.class);
     }
 
+    /**
+     * 文件秒传接口，传输大于25M的文件会先进行检查服务器是否已经存在该文件
+     *
+     * @param file         需要传输的文件
+     * @param fromUserName 消息的发送方UserName
+     * @param toUserName   消息的接收方UserName
+     * @return 秒传结果，
+     */
     RspCheckUpload webwxcheckupload(File file, String fromUserName, String toUserName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxcheckupload", host));
         request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqCheckUpload(new BaseRequest(uin, sid, skey), file, fromUserName, toUserName))));
@@ -422,7 +424,7 @@ final class WeChatApi {
     }
 
     /**
-     * 上传资源文件
+     * 上传资源文件，超过1M的文件会被分片上传，每片512K
      *
      * @param fromUserName 消息的发送方UserName
      * @param toUserName   消息的接收方UserName
@@ -474,19 +476,33 @@ final class WeChatApi {
                     multipartContent.params.add(new XRequest.KeyValue("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey, deviceId), clientMediaId, 2, fileLength, 0, fileLength, fileMd5, aesKey, signature, fromUserName, toUserName))));
                     multipartContent.params.add(new XRequest.KeyValue("webwx_data_ticket", dataTicket));
                     multipartContent.params.add(new XRequest.KeyValue("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket));
-                    int count = bfinStream.read(sliceBuffer);
-                    if (count == sliceBuffer.length) {
-                        multipartContent.params.add(new XRequest.KeyValue("filename", new WeChatTools.Slice(fileName, fileMime, sliceBuffer)));
-                    } else if (count > 0) {
-                        byte[] sliceCopy = new byte[count];
-                        System.arraycopy(sliceBuffer, 0, sliceCopy, 0, sliceCopy.length);
-                        multipartContent.params.add(new XRequest.KeyValue("filename", new WeChatTools.Slice(fileName, fileMime, sliceCopy)));
+                    int readCount;
+                    WeChatTools.Slice slice = new WeChatTools.Slice(fileName, fileMime, sliceBuffer, 0);
+                    while ((readCount = bfinStream.read(sliceBuffer, slice.count, sliceBuffer.length - slice.count)) > 0) {
+                        slice.count += readCount;
+                        if (slice.count >= sliceBuffer.length) {
+                            break;
+                        }
                     }
+                    multipartContent.params.add(new XRequest.KeyValue("filename", slice));
                     request.content(multipartContent);
                     rspUploadMedia = GSON.fromJson(XTools.http(httpOption, request).string(), RspUploadMedia.class);
                 }
             }
             return rspUploadMedia;
         }
+    }
+
+    /**
+     * 退出登录接口
+     */
+    void webwxlogout() {
+        XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxlogout", host));
+        request.query("redirect", 1);
+        request.query("type", 0);
+        request.query("skey", this.skey);
+        request.content("sid", this.sid);
+        request.content("uin", this.uin);
+        XTools.http(httpOption, request).string();
     }
 }

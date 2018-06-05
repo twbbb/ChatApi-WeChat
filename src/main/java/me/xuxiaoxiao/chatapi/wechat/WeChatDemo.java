@@ -1,6 +1,6 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.WXMessage;
 
 import java.io.File;
@@ -25,7 +25,7 @@ public class WeChatDemo {
 
         @Override
         public void onMessage(WXMessage message) {
-            System.out.println("获取到消息:" + new Gson().toJson(message));
+            System.out.println("获取到消息:" + new GsonBuilder().disableHtmlEscaping().create().toJson(message));
         }
     });
 
@@ -63,14 +63,6 @@ public class WeChatDemo {
                         wechatClient.revokeMsg(toUserName, clientMsgId, serverMsgId);
                     }
                     break;
-                    case "sendVerify": {
-                        System.out.println("userName:");
-                        String userName = scanner.nextLine();
-                        System.out.println("verifyContent:");
-                        String verifyContent = scanner.nextLine();
-                        wechatClient.sendVerify(userName, verifyContent);
-                    }
-                    break;
                     case "passVerify": {
                         System.out.println("userName:");
                         String userName = scanner.nextLine();
@@ -85,15 +77,6 @@ public class WeChatDemo {
                         System.out.println("remarkName:");
                         String remark = scanner.nextLine();
                         wechatClient.editRemark(userName, remark);
-                    }
-                    break;
-                    case "createGroup": {
-                        System.out.println("topic:");
-                        String topic = scanner.nextLine();
-                        System.out.println("members,split by ',':");
-                        String members = scanner.nextLine();
-                        String chatroomName = wechatClient.createGroup(topic, Arrays.asList(members.split(",")));
-                        System.out.println("create chatroom " + chatroomName);
                     }
                     break;
                     case "addGroupMember": {

@@ -77,6 +77,7 @@ public final class WeChatClient {
      * 关闭客户端，注意：关闭后的客户端不能再被启动
      */
     public void shutdown() {
+        wxAPI.webwxlogout();
         wxThread.interrupt();
     }
 
@@ -245,17 +246,6 @@ public final class WeChatClient {
     }
 
     /**
-     * 发送好友申请
-     *
-     * @param userName      目标用户UserName
-     * @param verifyContent 验证消息
-     */
-    public void sendVerify(String userName, String verifyContent) {
-        LOGGER.info(String.format("发送好友（%s）申请：%s", userName, verifyContent));
-        wxAPI.webwxverifyuser(2, userName, "", verifyContent);
-    }
-
-    /**
      * 同意好友申请
      *
      * @param userName     目标用户UserName
@@ -275,19 +265,6 @@ public final class WeChatClient {
     public void editRemark(String userName, String remark) {
         LOGGER.info(String.format("修改（%s）的备注：%s", userName, remark));
         wxAPI.webwxoplog(userName, remark);
-    }
-
-    /**
-     * 创建聊天室
-     *
-     * @param topic      聊天室名称
-     * @param memberList 成员列表
-     * @return 聊天室的UserName
-     */
-    public String createGroup(String topic, List<String> memberList) {
-        RspCreateChatroom rspCreateChatroom = wxAPI.webwxcreatechatroom(topic, memberList);
-        LOGGER.info(String.format("创建群：%s（%s），成员：%s", topic, rspCreateChatroom.ChatRoomName, memberList));
-        return rspCreateChatroom.ChatRoomName;
     }
 
     /**
@@ -470,6 +447,9 @@ public final class WeChatClient {
                 for (RspInit.User user : rspInit.ContactList) {
                     wxContacts.putContact(wxAPI.host, user);
                 }
+
+                //发送状态信息
+                wxAPI.webwxstatusnotify(wxContacts.getMe().id, WXNotify.NOTIFY_INITED);
 
                 //获取好友、群、公众号列表
                 LOGGER.finer("正在获取好友、群、公众号列表");
