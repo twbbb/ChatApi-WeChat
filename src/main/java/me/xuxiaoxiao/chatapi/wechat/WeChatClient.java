@@ -642,7 +642,7 @@ public final class WeChatClient {
                         wxVerify.province = msg.RecommendInfo.Province;
                         wxVerify.city = msg.RecommendInfo.City;
                         wxVerify.gender = msg.RecommendInfo.Sex;
-                        wxVerify.verify = msg.RecommendInfo.VerifyFlag;
+                        wxVerify.verifyFlag = msg.RecommendInfo.VerifyFlag;
                         wxVerify.ticket = msg.RecommendInfo.Ticket;
                         return wxVerify;
                     }
