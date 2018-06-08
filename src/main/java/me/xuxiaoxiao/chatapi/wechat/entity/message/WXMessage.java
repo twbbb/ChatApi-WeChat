@@ -15,6 +15,10 @@ public abstract class WXMessage implements Serializable, Cloneable {
      */
     public long id;
     /**
+     * 消息的本地id
+     */
+    public long idLocal;
+    /**
      * 消息的时间戳
      */
     public long timestamp;
@@ -49,6 +53,9 @@ public abstract class WXMessage implements Serializable, Cloneable {
         if (id != wxMessage.id) {
             return false;
         }
+        if (idLocal != wxMessage.idLocal) {
+            return false;
+        }
         if (timestamp != wxMessage.timestamp) {
             return false;
         }
@@ -67,6 +74,7 @@ public abstract class WXMessage implements Serializable, Cloneable {
     @Override
     public int hashCode() {
         int result = (int) (id ^ (id >>> 32));
+        result = 31 * result + (int) (idLocal ^ (idLocal >>> 32));
         result = 31 * result + (int) (timestamp ^ (timestamp >>> 32));
         result = 31 * result + (fromGroup != null ? fromGroup.hashCode() : 0);
         result = 31 * result + (fromUser != null ? fromUser.hashCode() : 0);

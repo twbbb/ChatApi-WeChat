@@ -137,7 +137,7 @@ final class WeChatApi {
     /**
      * 状态更新接口，登录登出，消息已读
      *
-     * @param userName   目标用户id
+     * @param userName   目标联系人userName
      * @param notifyCode 状态码
      * @return 接口调用结果
      */
@@ -288,12 +288,12 @@ final class WeChatApi {
      *
      * @param clientMsgId 本地消息id
      * @param serverMsgId 服务端消息id
-     * @param userName    消息接收人
+     * @param userName    消息接收人userName
      * @return 撤回结果
      */
-    RspRevokeMsg webwxrevokemsg(String clientMsgId, String serverMsgId, String userName) {
+    RspRevokeMsg webwxrevokemsg(long clientMsgId, long serverMsgId, String userName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxrevokemsg", host));
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqRevokeMsg(new BaseRequest(uin, sid, skey), clientMsgId, serverMsgId, userName))));
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqRevokeMsg(new BaseRequest(uin, sid, skey), String.valueOf(clientMsgId), String.valueOf(serverMsgId), userName))));
         return GSON.fromJson(XTools.http(httpOption, request).string(), RspRevokeMsg.class);
     }
 
@@ -310,7 +310,18 @@ final class WeChatApi {
         request.query("skey", skey);
         request.query("type", type);
         request.query("pass_ticket", passticket);
-        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("image-%s-%s", String.valueOf(type), msgId));
+        File imgFile = XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("image-%s-%s", String.valueOf(type), msgId));
+        try {
+            String suffix = WeChatTools.fileSuffix(imgFile);
+            if (!XTools.strEmpty(suffix)) {
+                File file = XTools.fileToFile(imgFile, folder.getAbsolutePath() + File.separator + String.format("image-%s-%s.%s", String.valueOf(type), msgId, suffix));
+                imgFile.delete();
+                return file;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return imgFile;
     }
 
     /**
@@ -359,7 +370,8 @@ final class WeChatApi {
         request.query("pass_ticket", this.passticket);
         request.query("sender", sender);
         request.query("webwx_data_ticket", this.dataTicket);
-        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("media-%d%s", msgId, filename.substring(filename.lastIndexOf('.'))));
+        String suffix = filename.lastIndexOf('.') > 0 ? filename.substring(filename.lastIndexOf('.')) : "";
+        return XTools.http(httpOption, request).file(folder.getAbsolutePath() + File.separator + String.format("media-%d%s", msgId, suffix));
     }
 
     /**

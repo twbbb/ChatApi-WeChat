@@ -6,12 +6,15 @@ import me.xuxiaoxiao.xtools.common.http.XRequest;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Random;
 
 final class WeChatTools {
+    private static final char[] HEX = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
     public static String fileType(File file) {
         switch (WeChatTools.fileSuffix(file)) {
             case "bmp":
@@ -27,12 +30,47 @@ final class WeChatTools {
     }
 
     public static String fileSuffix(File file) {
-        String fileName = file.getName();
-        if (fileName.lastIndexOf('.') > 0) {
-            return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
-        } else {
+        try (FileInputStream is = new FileInputStream(file)) {
+            byte[] b = new byte[3];
+            is.read(b, 0, b.length);
+            String fileCode = bytesToHex(b);
+
+            switch (fileCode) {
+                case "ffd8ff":
+                    return "jpg";
+                case "89504e":
+                    return "png";
+                case "474946":
+                    return "gif";
+                default:
+                    if (fileCode.startsWith("424d")) {
+                        return "bmp";
+                    } else if (file.getName().lastIndexOf('.') > 0) {
+                        return file.getName().substring(file.getName().lastIndexOf('.') + 1);
+                    } else {
+                        return "";
+                    }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
             return "";
         }
+    }
+
+    /**
+     * 将字节数组转换成16进制字符串
+     *
+     * @param bytes 要转换的字节数组
+     * @return 转换后的字符串，全小写字母
+     */
+    private static String bytesToHex(byte[] bytes) {
+        char[] chars = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            byte b = bytes[i];
+            chars[i << 1] = HEX[b >>> 4 & 0xf];
+            chars[(i << 1) + 1] = HEX[b & 0xf];
+        }
+        return new String(chars);
     }
 
     public static class MultipartContent extends XRequest.ParamsContent {

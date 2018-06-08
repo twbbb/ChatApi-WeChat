@@ -141,42 +141,98 @@ public final class WeChatClient {
     /**
      * 发送文字消息
      *
-     * @param contactId 目标联系人的id
-     * @param text      文字内容
+     * @param wxContact 目标联系人
+     * @param text      要发送的文字
      */
-    public void sendText(String contactId, String text) {
-        LOGGER.info(String.format("向（%s）发送消息：%s", contactId, text));
-        wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, contactId));
+    public WXText sendText(WXContact wxContact, String text) {
+        LOGGER.info(String.format("向（%s）发送消息：%s", wxContact.id, text));
+        RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, wxContact.id));
+
+        WXText wxText = new WXText();
+        wxText.id = Long.valueOf(rspSendMsg.MsgID);
+        wxText.idLocal = Long.valueOf(rspSendMsg.LocalID);
+        wxText.timestamp = System.currentTimeMillis();
+        wxText.fromGroup = null;
+        wxText.fromUser = wxContacts.getMe();
+        wxText.toContact = wxContact;
+        wxText.content = text;
+        return wxText;
     }
 
-    public void sendFile(String contactId, File file) {
-        if (WeChatTools.fileSuffix(file).equals("mp4") && file.length() >= 20L * 1024L * 1024L) {
-            LOGGER.warning(String.format("向（%s）发送的视频文件大于20M，无法发送", contactId));
+    /**
+     * 发送文件消息，可以是图片，动图，视频，文本等文件
+     *
+     * @param wxContact 目标联系人
+     * @param file      要发送的文件
+     */
+    public WXMessage sendFile(WXContact wxContact, File file) {
+        String suffix = WeChatTools.fileSuffix(file);
+        if ("mp4".equals(suffix) && file.length() >= 20L * 1024L * 1024L) {
+            LOGGER.warning(String.format("向（%s）发送的视频文件大于20M，无法发送", wxContact.id));
+            return null;
         } else {
             try {
-                LOGGER.info(String.format("向（%s）发送文件：%s", contactId, file.getAbsolutePath()));
+                LOGGER.info(String.format("向（%s）发送文件：%s", wxContact.id, file.getAbsolutePath()));
                 String mediaId = null, aesKey = null, signature = null;
                 if (file.length() >= 25L * 1024L * 1024L) {
-                    RspCheckUpload rspCheckUpload = wxAPI.webwxcheckupload(file, wxContacts.getMe().id, contactId);
+                    RspCheckUpload rspCheckUpload = wxAPI.webwxcheckupload(file, wxContacts.getMe().id, wxContact.id);
                     mediaId = rspCheckUpload.MediaId;
                     aesKey = rspCheckUpload.AESKey;
                     signature = rspCheckUpload.Signature;
                 }
                 if (XTools.strEmpty(mediaId)) {
-                    RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().id, contactId, file, aesKey, signature);
+                    RspUploadMedia rspUploadMedia = wxAPI.webwxuploadmedia(wxContacts.getMe().id, wxContact.id, file, aesKey, signature);
                     mediaId = rspUploadMedia.MediaId;
                 }
+
                 if (!XTools.strEmpty(mediaId)) {
                     switch (WeChatTools.fileType(file)) {
-                        case "pic":
-                            wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, mediaId, null, "", signature, wxContacts.getMe().id, contactId));
-                            break;
-                        case "video":
-                            wxAPI.webwxsendvideomsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_VIDEO, mediaId, null, "", signature, wxContacts.getMe().id, contactId));
-                            break;
+                        case "pic": {
+                            RspSendMsg rspSendMsg = wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, mediaId, null, "", signature, wxContacts.getMe().id, wxContact.id));
+                            WXImage wxImage = new WXImage();
+                            wxImage.id = Long.valueOf(rspSendMsg.MsgID);
+                            wxImage.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                            wxImage.timestamp = System.currentTimeMillis();
+                            wxImage.fromGroup = null;
+                            wxImage.fromUser = wxContacts.getMe();
+                            wxImage.toContact = wxContact;
+                            wxImage.imgWidth = 0;
+                            wxImage.imgHeight = 0;
+                            wxImage.image = wxAPI.webwxgetmsgimg(wxImage.id, "slave");
+                            wxImage.origin = file;
+                            return wxImage;
+                        }
+                        case "video": {
+                            RspSendMsg rspSendMsg = wxAPI.webwxsendvideomsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_VIDEO, mediaId, null, "", signature, wxContacts.getMe().id, wxContact.id));
+                            WXVideo wxVideo = new WXVideo();
+                            wxVideo.id = Long.valueOf(rspSendMsg.MsgID);
+                            wxVideo.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                            wxVideo.timestamp = System.currentTimeMillis();
+                            wxVideo.fromGroup = null;
+                            wxVideo.fromUser = wxContacts.getMe();
+                            wxVideo.toContact = wxContact;
+                            wxVideo.imgWidth = 0;
+                            wxVideo.imgHeight = 0;
+                            wxVideo.image = wxAPI.webwxgetmsgimg(wxVideo.id, "slave");
+                            wxVideo.videoLength = 0;
+                            wxVideo.video = file;
+                            return wxVideo;
+                        }
                         default:
-                            if (WeChatTools.fileSuffix(file).equals("gif")) {
-                                wxAPI.webwxsendemoticon(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_EMOJI, mediaId, 2, "", signature, wxContacts.getMe().id, contactId));
+                            if ("gif".equals(suffix)) {
+                                RspSendMsg rspSendMsg = wxAPI.webwxsendemoticon(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_EMOJI, mediaId, 2, "", signature, wxContacts.getMe().id, wxContact.id));
+                                WXImage wxImage = new WXImage();
+                                wxImage.id = Long.valueOf(rspSendMsg.MsgID);
+                                wxImage.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                                wxImage.timestamp = System.currentTimeMillis();
+                                wxImage.fromGroup = null;
+                                wxImage.fromUser = wxContacts.getMe();
+                                wxImage.toContact = wxContact;
+                                wxImage.imgWidth = 0;
+                                wxImage.imgHeight = 0;
+                                wxImage.image = file;
+                                wxImage.origin = file;
+                                return wxImage;
                             } else {
                                 StringBuilder sbAppMsg = new StringBuilder();
                                 sbAppMsg.append("<appmsg appid='wxeb7ec651dd0aefa9' sdkver=''>");
@@ -190,33 +246,34 @@ public final class WeChatClient {
                                 sbAppMsg.append("<appattach>");
                                 sbAppMsg.append("<totallen>").append(file.length()).append("</totallen>");
                                 sbAppMsg.append("<attachid>").append(mediaId).append("</attachid>");
-                                sbAppMsg.append("<fileext>").append(XTools.strEmpty(WeChatTools.fileSuffix(file)) ? "undefined" : WeChatTools.fileSuffix(file)).append("</fileext>");
+                                sbAppMsg.append("<fileext>").append(XTools.strEmpty(suffix) ? "undefined" : suffix).append("</fileext>");
                                 sbAppMsg.append("</appattach>");
                                 sbAppMsg.append("<extinfo></extinfo>");
                                 sbAppMsg.append("</appmsg>");
-                                wxAPI.webwxsendappmsg(new ReqSendMsg.Msg(6, null, null, sbAppMsg.toString(), signature, wxContacts.getMe().id, contactId));
+                                RspSendMsg rspSendMsg = wxAPI.webwxsendappmsg(new ReqSendMsg.Msg(6, null, null, sbAppMsg.toString(), signature, wxContacts.getMe().id, wxContact.id));
+                                WXFile wxFile = new WXFile();
+                                wxFile.id = Long.valueOf(rspSendMsg.MsgID);
+                                wxFile.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                                wxFile.timestamp = System.currentTimeMillis();
+                                wxFile.fromGroup = null;
+                                wxFile.fromUser = wxContacts.getMe();
+                                wxFile.toContact = wxContact;
+                                wxFile.content = sbAppMsg.toString();
+                                wxFile.fileSize = file.length();
+                                wxFile.fileName = file.getName();
+                                wxFile.fileId = mediaId;
+                                wxFile.file = file;
+                                return wxFile;
                             }
-                            break;
                     }
                 } else {
-                    LOGGER.severe(String.format("向（%s）发送的文件发送失败", contactId));
+                    LOGGER.severe(String.format("向（%s）发送的文件发送失败", wxContact.id));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-    }
-
-    /**
-     * 撤回消息
-     *
-     * @param contactId   目标用户的UserName
-     * @param clientMsgId 本地消息id
-     * @param serverMsgId 服务端消息id
-     */
-    public void revokeMsg(String contactId, String clientMsgId, String serverMsgId) {
-        LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", contactId, clientMsgId, serverMsgId));
-        wxAPI.webwxrevokemsg(clientMsgId, serverMsgId, contactId);
+        return null;
     }
 
     /**
@@ -228,65 +285,84 @@ public final class WeChatClient {
         wxImage.origin = wxAPI.webwxgetmsgimg(wxImage.id, "big");
     }
 
+    /**
+     * 获取语音消息的语音文件
+     *
+     * @param wxVoice 语音消息
+     */
     public void fetchVoice(WXVoice wxVoice) {
         wxVoice.voice = wxAPI.webwxgetvoice(wxVoice.id);
     }
 
+    /**
+     * 获取视频消息的视频文件
+     *
+     * @param wxVideo 视频消息
+     */
     public void fetchVideo(WXVideo wxVideo) {
         wxVideo.video = wxAPI.webwxgetvideo(wxVideo.id);
     }
 
     /**
-     * 获取文件消息的文件内容
+     * 获取文件消息的附件文件
      *
-     * @param fileMsg 要获取文件内容的文件消息
+     * @param wxFile 文件消息
      */
-    public void fetchFile(WXFile fileMsg) {
-        fileMsg.file = wxAPI.webwxgetmedia(fileMsg.id, fileMsg.fileName, fileMsg.fileId, fileMsg.fromUser.id);
+    public void fetchFile(WXFile wxFile) {
+        wxFile.file = wxAPI.webwxgetmedia(wxFile.id, wxFile.fileName, wxFile.fileId, wxFile.fromUser.id);
+    }
+
+    /**
+     * 撤回消息
+     *
+     * @param wxMessage 需要撤回的微信消息
+     */
+    public void revokeMsg(WXMessage wxMessage) {
+        LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.idLocal, wxMessage.id));
+        wxAPI.webwxrevokemsg(wxMessage.idLocal, wxMessage.id, wxMessage.toContact.id);
     }
 
     /**
      * 同意好友申请
      *
-     * @param userName     目标用户UserName
-     * @param verifyTicket 验证票据
+     * @param wxVerify 好友验证消息
      */
-    public void passVerify(String userName, String verifyTicket) {
-        LOGGER.info(String.format("通过好友（%s）申请", userName));
-        wxAPI.webwxverifyuser(3, userName, verifyTicket, "");
+    public void passVerify(WXVerify wxVerify) {
+        LOGGER.info(String.format("通过好友（%s）申请", wxVerify.userId));
+        wxAPI.webwxverifyuser(3, wxVerify.userId, wxVerify.ticket, "");
     }
 
     /**
      * 修改用户备注名
      *
-     * @param userName 目标用户UserName
-     * @param remark   备注名称
+     * @param wxUser 目标用户
+     * @param remark 备注名称
      */
-    public void editRemark(String userName, String remark) {
-        LOGGER.info(String.format("修改（%s）的备注：%s", userName, remark));
-        wxAPI.webwxoplog(userName, remark);
+    public void editRemark(WXUser wxUser, String remark) {
+        LOGGER.info(String.format("修改（%s）的备注：%s", wxUser.id, remark));
+        wxAPI.webwxoplog(wxUser.id, remark);
     }
 
     /**
      * 添加聊天室的成员
      *
-     * @param chatRoomName 聊天室的UserName
-     * @param users        要添加的人员的UserName，必须是自己的好友
+     * @param wxGroup 目标聊天室
+     * @param userIds 要添加的人员的id，必须是自己的好友
      */
-    public void addGroupMember(String chatRoomName, List<String> users) {
-        LOGGER.info(String.format("为群（%s）添加成员：%s", chatRoomName, users));
-        wxAPI.webwxupdatechartroom(chatRoomName, "addmember", users);
+    public void addGroupMember(WXGroup wxGroup, List<String> userIds) {
+        LOGGER.info(String.format("为群（%s）添加成员：%s", wxGroup.id, userIds));
+        wxAPI.webwxupdatechartroom(wxGroup.id, "addmember", userIds);
     }
 
     /**
      * 移除聊天室的成员
      *
-     * @param chatRoomName 聊天室的UserName
-     * @param users        要移除的人员的UserName，必须是聊天室的成员，而且自己是管理员
+     * @param wxGroup 目标聊天室
+     * @param userIds 要移除的人员的id，必须是聊天室的成员，而且自己是管理员
      */
-    public void delGroupMember(String chatRoomName, List<String> users) {
-        LOGGER.info(String.format("为群（%s）删除成员：%s", chatRoomName, users));
-        wxAPI.webwxupdatechartroom(chatRoomName, "delmember", users);
+    public void delGroupMember(WXGroup wxGroup, List<String> userIds) {
+        LOGGER.info(String.format("为群（%s）删除成员：%s", wxGroup.id, userIds));
+        wxAPI.webwxupdatechartroom(wxGroup.id, "delmember", userIds);
     }
 
     /**
@@ -570,6 +646,7 @@ public final class WeChatClient {
 
         private <T extends WXMessage> T parseCommon(RspSync.AddMsg msg, T message) {
             message.id = msg.MsgId;
+            message.idLocal = msg.MsgId;
             message.timestamp = msg.CreateTime * 1000;
             if (msg.FromUserName.startsWith("@@")) {
                 if (wxContacts.getGroup(msg.FromUserName) == null) {
