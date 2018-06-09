@@ -1,5 +1,6 @@
 package me.xuxiaoxiao.chatapi.wechat.entity.contact;
 
+import java.io.File;
 import java.io.Serializable;
 
 /**
@@ -35,9 +36,13 @@ public abstract class WXContact implements Serializable, Cloneable {
      */
     public String nameQP;
     /**
-     * 账户头像
+     * 账户头像地址
      */
-    public String avatar;
+    public String avatarUrl;
+    /**
+     * 账户头像文件
+     */
+    public File avatarFile;
     /**
      * 联系人标志字段
      */
@@ -54,7 +59,7 @@ public abstract class WXContact implements Serializable, Cloneable {
 
         WXContact wxContact = (WXContact) o;
 
-        if (!id.equals(wxContact.id)) {
+        if (id != null ? !id.equals(wxContact.id) : wxContact.id != null) {
             return false;
         }
         if (name != null ? !name.equals(wxContact.name) : wxContact.name != null) {
@@ -66,19 +71,23 @@ public abstract class WXContact implements Serializable, Cloneable {
         if (nameQP != null ? !nameQP.equals(wxContact.nameQP) : wxContact.nameQP != null) {
             return false;
         }
-        if (avatar != null ? !avatar.equals(wxContact.avatar) : wxContact.avatar != null) {
+        if (avatarUrl != null ? !avatarUrl.equals(wxContact.avatarUrl) : wxContact.avatarUrl != null) {
             return false;
         }
-        return contactFlag != wxContact.contactFlag;
+        if (avatarFile != null ? !avatarFile.equals(wxContact.avatarFile) : wxContact.avatarFile != null) {
+            return false;
+        }
+        return contactFlag == wxContact.contactFlag;
     }
 
     @Override
     public int hashCode() {
-        int result = id.hashCode();
+        int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (name != null ? name.hashCode() : 0);
         result = 31 * result + (namePY != null ? namePY.hashCode() : 0);
         result = 31 * result + (nameQP != null ? nameQP.hashCode() : 0);
-        result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
+        result = 31 * result + (avatarUrl != null ? avatarUrl.hashCode() : 0);
+        result = 31 * result + (avatarFile != null ? avatarFile.hashCode() : 0);
         result = 31 * result + contactFlag;
         return result;
     }

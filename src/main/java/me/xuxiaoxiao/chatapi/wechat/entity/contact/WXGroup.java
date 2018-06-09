@@ -65,5 +65,43 @@ public class WXGroup extends WXContact implements Serializable, Cloneable {
          * 群成员群名片
          */
         public String display;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Member member = (Member) o;
+
+            if (id != null ? !id.equals(member.id) : member.id != null) {
+                return false;
+            }
+            if (name != null ? !name.equals(member.name) : member.name != null) {
+                return false;
+            }
+            return display != null ? display.equals(member.display) : member.display == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = id != null ? id.hashCode() : 0;
+            result = 31 * result + (name != null ? name.hashCode() : 0);
+            result = 31 * result + (display != null ? display.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public Member clone() {
+            try {
+                return (Member) super.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                throw new IllegalStateException();
+            }
+        }
     }
 }

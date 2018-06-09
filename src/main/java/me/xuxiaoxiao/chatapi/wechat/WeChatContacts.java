@@ -24,7 +24,7 @@ final class WeChatContacts {
             group.name = contact.NickName;
             group.namePY = contact.PYInitial;
             group.nameQP = contact.PYQuanPin;
-            group.avatar = String.format("https://%s%s", host, contact.HeadImgUrl);
+            group.avatarUrl = String.format("https://%s%s", host, contact.HeadImgUrl);
             group.contactFlag = contact.ContactFlag;
             group.isOwner = contact.IsOwner > 0;
             group.members = new HashMap<>();
@@ -42,7 +42,7 @@ final class WeChatContacts {
             user.name = contact.NickName;
             user.namePY = contact.PYInitial;
             user.nameQP = contact.PYQuanPin;
-            user.avatar = String.format("https://%s%s", host, contact.HeadImgUrl);
+            user.avatarUrl = String.format("https://%s%s", host, contact.HeadImgUrl);
             user.contactFlag = contact.ContactFlag;
             user.gender = contact.Sex;
             user.signature = contact.Signature;

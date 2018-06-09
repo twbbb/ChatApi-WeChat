@@ -1,22 +1,22 @@
 # ChatApi-WeChat
-网页微信API，利用网页微信接口开发自己的微信聊天机器人
+Java版本微信聊天接口，使用网页微信API，让你能够开发自己的微信聊天机器人。
+
+Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/ChatApi-QQ)
 
 ## 这是什么？
 * 这是一个模拟的微信聊天客户端
 * 该客户端使用的接口来自于网页版微信
 
 ## 有何优点？
-* 对接口和流程进行了封装，更加简单易用
+* 对接口、流程、实体类进行了封装，更加简单易用
 * 暴露了一个监听器，可以自己实现监听器以开发自己的业务功能
 * 全部功能的支持
-    * 监听文字、图像、语音、视频、文件、系统提示等消息
-    * 发送文字和图像消息
+    * 监听文字、图像、动图、语音、视频、文件、系统提示等消息
+    * 发送文字、图像、动图、文件等消息
     * 撤回发送的消息
-    * 发送好友申请
-    * 同意好友申请
+    * 同意好友申请（网页微信发送好友申请功能已被关闭）
     * 修改好友备注
-    * 创建微信群
-    * 添加和移除群成员
+    * 添加和移除群成员（网页微信创建群功能已被关闭）
 
 ## 测试数据
 * 最长在线时间7天
@@ -43,124 +43,120 @@
 * 以下是一个学别人说话的小机器人，用到了该库提供的大部分功能
 ```java
 public class WeChatDemo {
+    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     /**
      * 新建一个模拟微信客户端，并绑定一个简单的监听器
      */
     public static WeChatClient wechatClient = new WeChatClient(new WeChatClient.WeChatListener() {
         @Override
         public void onQRCode(String qrCode) {
-            System.out.println("onQRCode:" + qrCode);
+            System.out.println("onQRCode：" + qrCode);
         }
         
         @Override
         public void onLogin() {
-            System.out.println("onLogin");
-            System.out.println(String.format("您有%d名好友、关注%d个公众号、活跃微信群%d个", wechatClient.userFriends().size(), wechatClient.userPublics().size(), wechatClient.userChatrooms().size()));
+            System.out.println(String.format("onLogin：您有%d名好友、活跃微信群%d个", wechatClient.userFriends().size(), wechatClient.userGroups().size()));
         }
         
         @Override
-        public void onMessageText(String msgId, User userWhere, User userFrom, String text) {
-            System.out.println("onMessageText:" + text);
-            //学习别人说话
-            if (!userFrom.UserName.equals(wechatClient.userMe().UserName)) {
-                wechatClient.sendText(userWhere.UserName, text);
+        public void onMessage(WXMessage message) {
+            System.out.println("获取到消息：" + GSON.toJson(message));
+            if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(wechatClient.userMe().id)) {
+                //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
+                if (message.fromGroup != null) {
+                    //群消息
+                    wechatClient.sendText(message.fromGroup, message.content);
+                } else {
+                    //用户消息
+                    wechatClient.sendText(message.fromUser, message.content);
+                }
             }
         }
-    }, null);
+    });
     
     public static void main(String[] args) {
         //启动模拟微信客户端
         wechatClient.startup();
         Scanner scanner = new Scanner(System.in);
         while (true) {
-            System.out.println("请输入指令");
-            switch (scanner.nextLine()) {
-                case "sendText": {
-                    System.out.println("toUserName:");
-                    String toUserName = scanner.nextLine();
-                    System.out.println("textContent:");
-                    String text = scanner.nextLine();
-                    wechatClient.sendText(toUserName, text);
-                }
-                break;
-                case "sendImage": {
-                    try {
-                        System.out.println("toUserName:");
-                        String toUserName = scanner.nextLine();
-                        System.out.println("imagePath:");
-                        File image = new File(scanner.nextLine());
-                        wechatClient.sendImage(toUserName, image);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+            try {
+                System.out.println("请输入指令");
+                switch (scanner.nextLine()) {
+                    case "sendText": {
+                        System.out.println("toContactId:");
+                        String toContactId = scanner.nextLine();
+                        System.out.println("textContent:");
+                        String text = scanner.nextLine();
+                        System.out.println("success:" + GSON.toJson(wechatClient.sendText(wechatClient.userContact(toContactId), text)));
                     }
-                }
-                break;
-                case "revokeMsg": {
-                    System.out.println("toUserName:");
-                    String toUserName = scanner.nextLine();
-                    System.out.println("clientMsgId:");
-                    String clientMsgId = scanner.nextLine();
-                    System.out.println("serverMsgId:");
-                    String serverMsgId = scanner.nextLine();
-                    wechatClient.revokeMsg(toUserName, clientMsgId, serverMsgId);
-                }
-                break;
-                case "sendVerify": {
-                    System.out.println("userName:");
-                    String userName = scanner.nextLine();
-                    System.out.println("verifyContent:");
-                    String verifyContent = scanner.nextLine();
-                    wechatClient.sendVerify(userName, verifyContent);
-                }
-                break;
-                case "passVerify": {
-                    System.out.println("userName:");
-                    String userName = scanner.nextLine();
-                    System.out.println("verifyTicket:");
-                    String verifyTicket = scanner.nextLine();
-                    wechatClient.passVerify(userName, verifyTicket);
-                }
-                break;
-                case "editRemark": {
-                    System.out.println("userName:");
-                    String userName = scanner.nextLine();
-                    System.out.println("remarkName:");
-                    String remark = scanner.nextLine();
-                    wechatClient.editRemark(userName, remark);
-                }
-                break;
-                case createGroup: {
-                    System.out.println("topic:");
-                    String topic = scanner.nextLine();
-                    System.out.println("members,split by ',':");
-                    String members = scanner.nextLine();
-                    String chatroomName = wechatClient.createChatroom(topic, Arrays.asList(members.split(",")));
-                    System.out.println("create chatroom " + chatroomName);
-                }
-                break;
-                case addGroupMember: {
-                    System.out.println("chatRoomName:");
-                    String chatroomName = scanner.nextLine();
-                    System.out.println("members,split by ',':");
-                    String members = scanner.nextLine();
-                    wechatClient.addChatroomMember(chatroomName, Arrays.asList(members.split(",")));
-                }
-                break;
-                case delGroupMember: {
-                    System.out.println("chatRoomName:");
-                    String chatroomName = scanner.nextLine();
-                    System.out.println("members,split by ',':");
-                    String members = scanner.nextLine();
-                    wechatClient.delChatroomMember(chatroomName, Arrays.asList(members.split(",")));
-                }
-                break;
-                case "quit":
-                    System.out.println("logging out");
-                    wechatClient.shutdown();
-                    return;
-                default:
-                    System.out.println("未知指令");
                     break;
+                    case "sendFile": {
+                        System.out.println("toContactId:");
+                        String toContactId = scanner.nextLine();
+                        System.out.println("filePath:");
+                        File file = new File(scanner.nextLine());
+                        System.out.println("success:" + GSON.toJson(wechatClient.sendFile(wechatClient.userContact(toContactId), file)));
+                    }
+                    break;
+                    case "revokeMsg": {
+                        System.out.println("toContactId:");
+                        String toContactId = scanner.nextLine();
+                        System.out.println("clientMsgId:");
+                        String clientMsgId = scanner.nextLine();
+                        System.out.println("serverMsgId:");
+                        String serverMsgId = scanner.nextLine();
+                        WXUnknown wxUnknown = new WXUnknown();
+                        wxUnknown.id = Long.valueOf(serverMsgId);
+                        wxUnknown.idLocal = Long.valueOf(clientMsgId);
+                        wxUnknown.toContact = wechatClient.userContact(toContactId);
+                        wechatClient.revokeMsg(wxUnknown);
+                    }
+                    break;
+                    case "passVerify": {
+                        System.out.println("userId:");
+                        String userId = scanner.nextLine();
+                        System.out.println("verifyTicket:");
+                        String verifyTicket = scanner.nextLine();
+                        WXVerify wxVerify = new WXVerify();
+                        wxVerify.userId = userId;
+                        wxVerify.ticket = verifyTicket;
+                        wechatClient.passVerify(wxVerify);
+                    }
+                    break;
+                    case "editRemark": {
+                        System.out.println("userId:");
+                        String userId = scanner.nextLine();
+                        System.out.println("remarkName:");
+                        String remark = scanner.nextLine();
+                        wechatClient.editRemark((WXUser) wechatClient.userContact(userId), remark);
+                    }
+                    break;
+                    case "addGroupMember": {
+                        System.out.println("groupId:");
+                        String groupId = scanner.nextLine();
+                        System.out.println("memberIds,split by ',':");
+                        String memberIds = scanner.nextLine();
+                        wechatClient.addGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
+                    }
+                    break;
+                    case "delGroupMember": {
+                        System.out.println("chatRoomName:");
+                        String groupId = scanner.nextLine();
+                        System.out.println("memberIds,split by ',':");
+                        String memberIds = scanner.nextLine();
+                        wechatClient.delGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
+                    }
+                    break;
+                    case "quit":
+                        System.out.println("logging out");
+                        wechatClient.shutdown();
+                        return;
+                    default:
+                        System.out.println("未知指令");
+                        return;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

@@ -31,12 +31,12 @@ final class WeChatApi {
 
     private final long TIME_INIT = System.currentTimeMillis();
     private final AtomicBoolean FIRST_LOGIN = new AtomicBoolean(true);
-    private final File folder;
 
     String host;
     String uin;
     String sid;
     String dataTicket;
+    File folder;
     XOption httpOption = new XOption(60 * 1000, 90 * 1000) {
         @Override
         public CookieManager cookieManager() {

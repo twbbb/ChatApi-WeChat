@@ -6,6 +6,7 @@ import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.xtools.common.XTools;
+import me.xuxiaoxiao.xtools.common.http.XRequest;
 
 import java.io.File;
 import java.io.IOException;
@@ -277,12 +278,24 @@ public final class WeChatClient {
     }
 
     /**
+     * 获取用户头像
+     *
+     * @param wxContact 要获取头像文件的用户
+     * @return 获取头像文件后的用户
+     */
+    public WXContact fetchAvatar(WXContact wxContact) {
+        wxContact.avatarFile = XTools.http(wxAPI.httpOption, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
+        return wxContact;
+    }
+
+    /**
      * 获取图片消息的大图
      *
      * @param wxImage 要获取大图的图片消息
      */
-    public void fetchImage(WXImage wxImage) {
+    public WXImage fetchImage(WXImage wxImage) {
         wxImage.origin = wxAPI.webwxgetmsgimg(wxImage.id, "big");
+        return wxImage;
     }
 
     /**
@@ -290,8 +303,9 @@ public final class WeChatClient {
      *
      * @param wxVoice 语音消息
      */
-    public void fetchVoice(WXVoice wxVoice) {
+    public WXVoice fetchVoice(WXVoice wxVoice) {
         wxVoice.voice = wxAPI.webwxgetvoice(wxVoice.id);
+        return wxVoice;
     }
 
     /**
@@ -299,8 +313,9 @@ public final class WeChatClient {
      *
      * @param wxVideo 视频消息
      */
-    public void fetchVideo(WXVideo wxVideo) {
+    public WXVideo fetchVideo(WXVideo wxVideo) {
         wxVideo.video = wxAPI.webwxgetvideo(wxVideo.id);
+        return wxVideo;
     }
 
     /**
@@ -308,8 +323,9 @@ public final class WeChatClient {
      *
      * @param wxFile 文件消息
      */
-    public void fetchFile(WXFile wxFile) {
+    public WXFile fetchFile(WXFile wxFile) {
         wxFile.file = wxAPI.webwxgetmedia(wxFile.id, wxFile.fileName, wxFile.fileId, wxFile.fromUser.id);
+        return wxFile;
     }
 
     /**
