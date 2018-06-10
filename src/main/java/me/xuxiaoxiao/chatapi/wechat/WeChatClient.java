@@ -144,6 +144,7 @@ public final class WeChatClient {
      *
      * @param wxContact 目标联系人
      * @param text      要发送的文字
+     * @return 文本消息
      */
     public WXText sendText(WXContact wxContact, String text) {
         LOGGER.info(String.format("向（%s）发送消息：%s", wxContact.id, text));
@@ -165,6 +166,7 @@ public final class WeChatClient {
      *
      * @param wxContact 目标联系人
      * @param file      要发送的文件
+     * @return 图像或附件消息
      */
     public WXMessage sendFile(WXContact wxContact, File file) {
         String suffix = WeChatTools.fileSuffix(file);
@@ -292,6 +294,7 @@ public final class WeChatClient {
      * 获取图片消息的大图
      *
      * @param wxImage 要获取大图的图片消息
+     * @return 获取大图后的图片消息
      */
     public WXImage fetchImage(WXImage wxImage) {
         wxImage.origin = wxAPI.webwxgetmsgimg(wxImage.id, "big");
@@ -302,6 +305,7 @@ public final class WeChatClient {
      * 获取语音消息的语音文件
      *
      * @param wxVoice 语音消息
+     * @return 获取语音文件后的语音消息
      */
     public WXVoice fetchVoice(WXVoice wxVoice) {
         wxVoice.voice = wxAPI.webwxgetvoice(wxVoice.id);
@@ -312,6 +316,7 @@ public final class WeChatClient {
      * 获取视频消息的视频文件
      *
      * @param wxVideo 视频消息
+     * @return 获取视频文件后的视频消息
      */
     public WXVideo fetchVideo(WXVideo wxVideo) {
         wxVideo.video = wxAPI.webwxgetvideo(wxVideo.id);
@@ -322,6 +327,7 @@ public final class WeChatClient {
      * 获取文件消息的附件文件
      *
      * @param wxFile 文件消息
+     * @return 获取附件文件后的文件消息
      */
     public WXFile fetchFile(WXFile wxFile) {
         wxFile.file = wxAPI.webwxgetmedia(wxFile.id, wxFile.fileName, wxFile.fileId, wxFile.fromUser.id);
@@ -416,6 +422,8 @@ public final class WeChatClient {
 
         /**
          * 用户获取到消息
+         *
+         * @param message 用户获取到的消息
          */
         public void onMessage(WXMessage message) {
         }
