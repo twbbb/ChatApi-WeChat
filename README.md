@@ -19,26 +19,29 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
     * 添加和移除群成员（网页微信创建群功能已被关闭）
 
 ## 测试数据
-* 最长在线时间7天
+* 最后测试可用时间：2018-06-10
+* 最长在线时间：7天
 
 ## 如何使用
-* 使用maven下载必要依赖
+* maven依赖
+
 ```xml
-<dependencies>
-    <!--xtools基础工具库-->
-    <dependency>
-        <groupId>me.xuxiaoxiao</groupId>
-        <artifactId>xtools-common</artifactId>
-        <version>1.1.1</version>
-    </dependency>
-    <!--gson工具类-->
-    <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>2.8.2</version>
-    </dependency>
-</dependencies>
+<dependency>
+    <groupId>me.xuxiaoxiao</groupId>
+    <artifactId>chatapi-wechat</artifactId>
+    <version>1.1.0</version>
+</dependency>
 ```
+
+* gradle依赖
+
+```gradle
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.0'
+```
+
+* jar包
+
+[点击进入下载页](https://github.com/xuxiaoxiao-xxx/ChatApi-WeChat/releases)
 
 * 以下是一个学别人说话的小机器人，用到了该库提供的大部分功能
 ```java
