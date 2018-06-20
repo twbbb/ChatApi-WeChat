@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.HttpCookie;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -41,6 +42,24 @@ public final class WeChatClient {
     public WeChatClient(WeChatListener wxListener) {
         this(wxListener, null, null);
     }
+    
+    public File getFolder()
+	{
+		return wxAPI.folder;
+	}
+
+    /**
+     * 
+     * @Title: setFolder   
+     * @Description: 设置文件存储位置
+     * @param: @param folder      
+     * @return: void      
+     * @throws
+     */
+	public void setFolder(File folder)
+	{
+		wxAPI.folder = folder;
+	}
 
     public WeChatClient(WeChatListener wxListener, File folder, Handler handler) {
         Objects.requireNonNull(wxListener);
@@ -429,6 +448,11 @@ public final class WeChatClient {
         }
 
         /**
+         * 联系人改变时候
+         */
+        public void onModContact() {
+        }
+        /**
          * 模拟网页微信客户端正常退出
          */
         public void onLogout() {
@@ -566,6 +590,16 @@ public final class WeChatClient {
                         contacts.add(new ReqBatchGetContact.Contact(userName, ""));
                     }
                 }
+                HashMap<String, WXGroup> userGroups = wxContacts.getGroups();
+                for (Entry<String, WXGroup> entry : userGroups.entrySet())
+    			{
+                	WXGroup wg = entry.getValue();
+                	if(wg.members.isEmpty())
+                	{
+                		contacts.add(new ReqBatchGetContact.Contact(wg.id, ""));
+                	}
+    			}
+
                 loadContacts(contacts);
 
                 return null;
@@ -617,7 +651,9 @@ public final class WeChatClient {
                             for (RspInit.User user : rspSync.ModContactList) {
                                 LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
                                 wxContacts.putContact(wxAPI.host, user);
+                                wxListener.onModContact();
                             }
+                            
                         }
                         if (rspSync.ModChatRoomMemberList != null) {
                             for (RspInit.User user : rspSync.ModChatRoomMemberList) {

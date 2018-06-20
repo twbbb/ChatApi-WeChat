@@ -55,7 +55,17 @@ final class WeChatApi {
         this.folder = folder;
     }
 
-    /**
+    public File getFolder()
+	{
+		return folder;
+	}
+
+	public void setFolder(File folder)
+	{
+		this.folder = folder;
+	}
+
+	/**
      * 获取登录二维码
      *
      * @return 登录二维码网址
