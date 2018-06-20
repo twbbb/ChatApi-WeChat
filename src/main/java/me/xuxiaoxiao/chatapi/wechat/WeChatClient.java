@@ -59,6 +59,35 @@ public final class WeChatClient {
     }
 
     /**
+     * 获取并保存不限数量和类型的联系人信息
+     *
+     * @param contacts 要获取的联系人的列表，数量和类型不限
+     */
+    private void loadContacts(List<ReqBatchGetContact.Contact> contacts) {
+        //拆分成每次50个联系人分批获取
+        if (contacts.size() > 50) {
+            LinkedList<ReqBatchGetContact.Contact> temp = new LinkedList<>();
+            for (ReqBatchGetContact.Contact contact : contacts) {
+                temp.add(contact);
+                if (temp.size() >= 50) {
+                    RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
+                    for (RspInit.User user : rspBatchGetContact.ContactList) {
+                        wxContacts.putContact(wxAPI.host, user);
+                    }
+                    temp.clear();
+                }
+            }
+            contacts = temp;
+        }
+        if (contacts.size() > 0) {
+            RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
+            for (RspInit.User user : rspBatchGetContact.ContactList) {
+                wxContacts.putContact(wxAPI.host, user);
+            }
+        }
+    }
+
+    /**
      * 启动客户端，注意：一个客户端类的实例只能被启动一次
      */
     public void startup() {
@@ -280,6 +309,27 @@ public final class WeChatClient {
     }
 
     /**
+     * 获取用户联系人，如果获取的联系人是群组，则会自动获取群成员的详细信息
+     * <br/>
+     * <strong>在联系人列表中获取到的群，没有群成员，可以通过这个方法，获取群的详细信息</strong>
+     *
+     * @param contactId 联系人id
+     * @return 联系人的详细信息
+     */
+    public WXContact fetchContact(String contactId) {
+        loadContacts(Collections.singletonList(new ReqBatchGetContact.Contact(contactId, "")));
+        WXContact contact = wxContacts.getContact(contactId);
+        if (contact instanceof WXGroup) {
+            List<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
+            for (WXGroup.Member member : ((WXGroup) contact).members.values()) {
+                contacts.add(new ReqBatchGetContact.Contact(member.id, ""));
+            }
+            loadContacts(contacts);
+        }
+        return contact;
+    }
+
+    /**
      * 获取用户头像
      *
      * @param wxContact 要获取头像文件的用户
@@ -292,6 +342,8 @@ public final class WeChatClient {
 
     /**
      * 获取图片消息的大图
+     * <br/>
+     * <strong>表情商店的表情消息(image和origin都为null的图片消息)不能下载图片</strong>
      *
      * @param wxImage 要获取大图的图片消息
      * @return 获取大图后的图片消息
@@ -640,69 +692,40 @@ public final class WeChatClient {
             }
         }
 
-        /**
-         * 获取联系人信息
-         *
-         * @param contacts 要获取的联系人的列表
-         */
-        private void loadContacts(List<ReqBatchGetContact.Contact> contacts) {
-            if (contacts.size() > 50) {
-                LinkedList<ReqBatchGetContact.Contact> temp = new LinkedList<>();
-                for (ReqBatchGetContact.Contact contact : contacts) {
-                    temp.add(contact);
-                    if (temp.size() >= 50) {
-                        RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
-                        for (RspInit.User user : rspBatchGetContact.ContactList) {
-                            wxContacts.putContact(wxAPI.host, user);
-                        }
-                        temp.clear();
-                    }
-                }
-                contacts = temp;
-            }
-            if (contacts.size() > 0) {
-                RspBatchGetContact rspBatchGetContact = wxAPI.webwxbatchgetcontact(contacts);
-                for (RspInit.User user : rspBatchGetContact.ContactList) {
-                    wxContacts.putContact(wxAPI.host, user);
-                }
-            }
-        }
-
         private <T extends WXMessage> T parseCommon(RspSync.AddMsg msg, T message) {
             message.id = msg.MsgId;
             message.idLocal = msg.MsgId;
             message.timestamp = msg.CreateTime * 1000;
             if (msg.FromUserName.startsWith("@@")) {
-                if (wxContacts.getGroup(msg.FromUserName) == null) {
-                    loadContacts(Collections.singletonList(new ReqBatchGetContact.Contact(msg.FromUserName, "")));
+                //是群消息
+                message.fromGroup = (WXGroup) wxContacts.getContact(msg.FromUserName);
+                if (message.fromGroup == null || message.fromGroup.members.isEmpty()) {
+                    //如果群不存在，或者是未获取成员的群。获取并保存群的详细信息
+                    message.fromGroup = (WXGroup) fetchContact(msg.FromUserName);
                 }
-                message.fromGroup = wxContacts.getGroup(msg.FromUserName);
                 Matcher mGroupMsg = REX_GROUPMSG.matcher(msg.Content);
                 if (mGroupMsg.matches()) {
-                    if (wxContacts.getContact(mGroupMsg.group(1)) == null) {
-                        if (message.fromGroup == null) {
-                            message.fromUser = null;
-                        } else {
-                            List<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
-                            for (Map.Entry<String, WXGroup.Member> entry : message.fromGroup.members.entrySet()) {
-                                contacts.add(new ReqBatchGetContact.Contact(entry.getValue().id, ""));
-                            }
-                            loadContacts(contacts);
-                            message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
-                        }
-                    }
+                    //是群成员发送的消息
                     message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
-                }
-                message.toContact = wxContacts.getContact(msg.ToUserName);
-                if (message.fromUser != null) {
+                    if (message.fromUser == null) {
+                        //未获取成员。首先获取并保存群的详细信息，然后获取群成员信息
+                        fetchContact(msg.FromUserName);
+                        message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
+                    }
                     message.content = mGroupMsg.group(2);
                 } else {
+                    //不是群成员发送的消息
+                    message.fromUser = null;
                     message.content = msg.Content;
                 }
             } else {
+                //不是群消息
                 message.fromGroup = null;
                 message.fromUser = (WXUser) wxContacts.getContact(msg.FromUserName);
-                message.toContact = wxContacts.getContact(msg.ToUserName);
+                if (message.fromUser == null) {
+                    //联系人不存在（一般不会出现这种情况），手动获取联系人
+                    message.fromUser = (WXUser) fetchContact(msg.FromUserName);
+                }
                 message.content = msg.Content;
             }
             return message;
@@ -771,8 +794,11 @@ public final class WeChatClient {
                         WXImage wxImage = parseCommon(msg, new WXImage());
                         wxImage.imgWidth = msg.ImgWidth;
                         wxImage.imgHeight = msg.ImgHeight;
-                        wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
-                        wxImage.origin = wxImage.image;
+                        if (!XTools.strEmpty(msg.Content) && msg.HasProductId == 0) {
+                            //非表情商店的表情，下载图片
+                            wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
+                            wxImage.origin = wxImage.image;
+                        }
                         return wxImage;
                     }
                     case RspSync.AddMsg.TYPE_OTHER: {
