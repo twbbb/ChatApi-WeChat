@@ -26,6 +26,7 @@ final class WeChatContacts {
             group.nameQP = contact.PYQuanPin;
             group.avatarUrl = String.format("https://%s%s", host, contact.HeadImgUrl);
             group.contactFlag = contact.ContactFlag;
+            group.isDetail = false;
             group.isOwner = contact.IsOwner > 0;
             group.members = new HashMap<>();
             for (RspInit.User user : contact.MemberList) {

@@ -8,6 +8,10 @@ import java.util.HashMap;
  */
 public class WXGroup extends WXContact implements Serializable, Cloneable {
     /**
+     * 是否是详细的群信息，如果不是则可以通过WeChatClient.fetchContact方法获取群的详细信息
+     */
+    public boolean isDetail;
+    /**
      * 我自己是否是群主
      */
     public boolean isOwner;
@@ -29,6 +33,9 @@ public class WXGroup extends WXContact implements Serializable, Cloneable {
         }
 
         WXGroup wxGroup = (WXGroup) o;
+        if (isDetail != wxGroup.isDetail) {
+            return false;
+        }
         if (isOwner != wxGroup.isOwner) {
             return false;
         }
@@ -38,6 +45,7 @@ public class WXGroup extends WXContact implements Serializable, Cloneable {
     @Override
     public int hashCode() {
         int result = super.hashCode();
+        result = 31 * result + (isDetail ? 1 : 0);
         result = 31 * result + (isOwner ? 1 : 0);
         result = 31 * result + (members != null ? members.hashCode() : 0);
         return result;

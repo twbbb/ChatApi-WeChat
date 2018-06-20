@@ -29,14 +29,14 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
 <dependency>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
 * gradle依赖
 
 ```gradle
-implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.0'
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.1'
 ```
 
 * jar包

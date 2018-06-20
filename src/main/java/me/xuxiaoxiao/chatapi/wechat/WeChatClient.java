@@ -325,6 +325,7 @@ public final class WeChatClient {
                 contacts.add(new ReqBatchGetContact.Contact(member.id, ""));
             }
             loadContacts(contacts);
+            ((WXGroup) contact).isDetail = true;
         }
         return contact;
     }
@@ -699,7 +700,7 @@ public final class WeChatClient {
             if (msg.FromUserName.startsWith("@@")) {
                 //是群消息
                 message.fromGroup = (WXGroup) wxContacts.getContact(msg.FromUserName);
-                if (message.fromGroup == null || message.fromGroup.members.isEmpty()) {
+                if (message.fromGroup == null || !message.fromGroup.isDetail || message.fromGroup.members.isEmpty()) {
                     //如果群不存在，或者是未获取成员的群。获取并保存群的详细信息
                     message.fromGroup = (WXGroup) fetchContact(msg.FromUserName);
                 }
@@ -791,15 +792,21 @@ public final class WeChatClient {
                         return wxVideo;
                     }
                     case RspSync.AddMsg.TYPE_EMOJI: {
-                        WXImage wxImage = parseCommon(msg, new WXImage());
-                        wxImage.imgWidth = msg.ImgWidth;
-                        wxImage.imgHeight = msg.ImgHeight;
-                        if (!XTools.strEmpty(msg.Content) && msg.HasProductId == 0) {
+                        if (XTools.strEmpty(msg.Content) || msg.HasProductId > 0) {
+                            //表情商店的表情，无法下载图片
+                            WXEmoji wxEmoji = parseCommon(msg, new WXEmoji());
+                            wxEmoji.imgWidth = msg.ImgWidth;
+                            wxEmoji.imgHeight = msg.ImgHeight;
+                            return wxEmoji;
+                        } else {
                             //非表情商店的表情，下载图片
+                            WXImage wxImage = parseCommon(msg, new WXImage());
+                            wxImage.imgWidth = msg.ImgWidth;
+                            wxImage.imgHeight = msg.ImgHeight;
                             wxImage.image = wxAPI.webwxgetmsgimg(msg.MsgId, "big");
                             wxImage.origin = wxImage.image;
+                            return wxImage;
                         }
-                        return wxImage;
                     }
                     case RspSync.AddMsg.TYPE_OTHER: {
                         if (msg.AppMsgType == 2) {
