@@ -310,7 +310,6 @@ public final class WeChatClient {
 
     /**
      * 获取用户联系人，如果获取的联系人是群组，则会自动获取群成员的详细信息
-     * <br/>
      * <strong>在联系人列表中获取到的群，没有群成员，可以通过这个方法，获取群的详细信息</strong>
      *
      * @param contactId 联系人id
@@ -343,8 +342,6 @@ public final class WeChatClient {
 
     /**
      * 获取图片消息的大图
-     * <br/>
-     * <strong>表情商店的表情消息(image和origin都为null的图片消息)不能下载图片</strong>
      *
      * @param wxImage 要获取大图的图片消息
      * @return 获取大图后的图片消息

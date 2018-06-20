@@ -2,6 +2,9 @@ package me.xuxiaoxiao.chatapi.wechat.entity.message;
 
 import java.io.Serializable;
 
+/**
+ * 微信表情商店表情消息，该类型的消息无法下载图片
+ */
 public class WXEmoji extends WXMessage implements Serializable, Cloneable {
     /**
      * 图片宽度
