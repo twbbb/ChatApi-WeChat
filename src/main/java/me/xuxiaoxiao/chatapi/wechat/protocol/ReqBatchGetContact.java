@@ -15,11 +15,11 @@ public class ReqBatchGetContact {
 
     public static class Contact {
         public final String UserName;
-        public final String ChatRoomId;
+        public final String EncryChatRoomId;
 
-        public Contact(String userName, String chatRoomId) {
+        public Contact(String userName, String encryChatRoomId) {
             this.UserName = userName;
-            this.ChatRoomId = chatRoomId;
+            this.EncryChatRoomId = encryChatRoomId;
         }
     }
 }

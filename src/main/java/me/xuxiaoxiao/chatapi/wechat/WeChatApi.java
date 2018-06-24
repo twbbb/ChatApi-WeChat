@@ -394,14 +394,16 @@ final class WeChatApi {
     /**
      * 修改用户备注
      *
+     * @param cmdId      指令id
+     * @param op         操作码
      * @param userName   目标用户的UserName
      * @param remarkName 备注名称
      * @return 修改备注的结果
      */
-    RspOplog webwxoplog(String userName, String remarkName) {
+    RspOplog webwxoplog(int cmdId, int op, String userName, String remarkName) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxoplog", host));
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqOplog(new BaseRequest(uin, sid, skey), userName, remarkName))));
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqOplog(new BaseRequest(uin, sid, skey), cmdId, op, userName, remarkName))));
         return GSON.fromJson(XTools.http(httpOption, request).string(), RspOplog.class);
     }
 
@@ -410,14 +412,15 @@ final class WeChatApi {
      *
      * @param chatroom   聊天室的UserName
      * @param fun        addmember：添加成员，delmember：移除成员
+     * @param name       聊天室名称
      * @param memberList 成员列表
      * @return 添加或移除的结果
      */
-    RspUpdateChatroom webwxupdatechartroom(String chatroom, String fun, List<String> memberList) {
+    RspUpdateChatroom webwxupdatechartroom(String chatroom, String fun, String name, List<String> memberList) {
         XRequest request = XRequest.POST(String.format("https://%s/cgi-bin/mmwebwx-bin/webwxupdatechatroom", host));
         request.query("fun", fun);
         request.query("pass_ticket", this.passticket);
-        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqUpdateChatroom(new BaseRequest(uin, sid, skey), chatroom, fun, XTools.strJoin(memberList, ",")))));
+        request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqUpdateChatroom(new BaseRequest(uin, sid, skey), chatroom, fun, name, XTools.strJoin(memberList, ",")))));
         return GSON.fromJson(XTools.http(httpOption, request).string(), RspUpdateChatroom.class);
     }
 

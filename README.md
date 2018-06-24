@@ -16,10 +16,12 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
     * 撤回发送的消息
     * 同意好友申请（网页微信发送好友申请功能已被关闭）
     * 修改好友备注
+    * 置顶/取消置顶联系人
+    * 设置群名称
     * 添加和移除群成员（网页微信创建群功能已被关闭）
 
 ## 测试数据
-* 最后测试可用时间：2018-06-10
+* 最后测试可用时间：2018-06-24
 * 最长在线时间：7天
 
 ## 如何使用
@@ -29,14 +31,14 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
 <dependency>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
 * gradle依赖
 
 ```gradle
-implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.1'
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.2'
 ```
 
 * jar包
@@ -134,6 +136,22 @@ public class WeChatDemo {
                         wechatClient.editRemark((WXUser) wechatClient.userContact(userId), remark);
                     }
                     break;
+                    case "topContact": {
+                        System.out.println("contactId:");
+                        String contactId = scanner.nextLine();
+                        System.out.println("isTop:");
+                        String isTop = scanner.nextLine();
+                        wechatClient.topContact(wechatClient.userContact(contactId), Boolean.valueOf(isTop.toLowerCase()));
+                    }
+                    break;
+                    case "setGroupName": {
+                        System.out.println("groupId:");
+                        String groupId = scanner.nextLine();
+                        System.out.println("name:");
+                        String name = scanner.nextLine();
+                        wechatClient.setGroupName(wechatClient.userGroup(groupId), name);
+                    }
+                    break;
                     case "addGroupMember": {
                         System.out.println("groupId:");
                         String groupId = scanner.nextLine();
@@ -143,20 +161,22 @@ public class WeChatDemo {
                     }
                     break;
                     case "delGroupMember": {
-                        System.out.println("chatRoomName:");
+                        System.out.println("groupId:");
                         String groupId = scanner.nextLine();
                         System.out.println("memberIds,split by ',':");
                         String memberIds = scanner.nextLine();
                         wechatClient.delGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
                     }
                     break;
-                    case "quit":
+                    case "quit": {
                         System.out.println("logging out");
                         wechatClient.shutdown();
-                        return;
-                    default:
+                    }
+                    return;
+                    default: {
                         System.out.println("未知指令");
-                        return;
+                    }
+                    break;
                 }
             } catch (Exception e) {
                 e.printStackTrace();

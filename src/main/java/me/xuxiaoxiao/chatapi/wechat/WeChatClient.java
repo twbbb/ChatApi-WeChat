@@ -61,9 +61,36 @@ public final class WeChatClient {
     /**
      * 获取并保存不限数量和类型的联系人信息
      *
+     * @param userNames 逗号分隔的联系人userName
+     */
+    private void loadContacts(String userNames, boolean useCache) {
+        if (!XTools.strEmpty(userNames)) {
+            LinkedList<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
+            for (String userName : userNames.split(",")) {
+                if (!XTools.strEmpty(userName)) {
+                    contacts.add(new ReqBatchGetContact.Contact(userName, ""));
+                }
+            }
+            loadContacts(contacts, useCache);
+        }
+    }
+
+    /**
+     * 获取并保存不限数量和类型的联系人信息
+     *
      * @param contacts 要获取的联系人的列表，数量和类型不限
      */
-    private void loadContacts(List<ReqBatchGetContact.Contact> contacts) {
+    private void loadContacts(List<ReqBatchGetContact.Contact> contacts, boolean useCache) {
+        if (useCache) {
+            Iterator<ReqBatchGetContact.Contact> iterator = contacts.iterator();
+            while (iterator.hasNext()) {
+                ReqBatchGetContact.Contact contact = iterator.next();
+                if (!contact.UserName.startsWith("@@") && wxContacts.getContact(contact.UserName) != null) {
+                    //不是群聊，并且已经获取过，就不再次获取
+                    iterator.remove();
+                }
+            }
+        }
         //拆分成每次50个联系人分批获取
         if (contacts.size() > 50) {
             LinkedList<ReqBatchGetContact.Contact> temp = new LinkedList<>();
@@ -316,14 +343,14 @@ public final class WeChatClient {
      * @return 联系人的详细信息
      */
     public WXContact fetchContact(String contactId) {
-        loadContacts(Collections.singletonList(new ReqBatchGetContact.Contact(contactId, "")));
+        loadContacts(contactId, false);
         WXContact contact = wxContacts.getContact(contactId);
         if (contact instanceof WXGroup) {
             List<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
             for (WXGroup.Member member : ((WXGroup) contact).members.values()) {
-                contacts.add(new ReqBatchGetContact.Contact(member.id, ""));
+                contacts.add(new ReqBatchGetContact.Contact(member.id, contact.id));
             }
-            loadContacts(contacts);
+            loadContacts(contacts, true);
             ((WXGroup) contact).isDetail = true;
         }
         return contact;
@@ -412,7 +439,29 @@ public final class WeChatClient {
      */
     public void editRemark(WXUser wxUser, String remark) {
         LOGGER.info(String.format("修改（%s）的备注：%s", wxUser.id, remark));
-        wxAPI.webwxoplog(wxUser.id, remark);
+        wxAPI.webwxoplog(ReqOplog.CMD_REMARK, ReqOplog.OP_NONE, wxUser.id, remark);
+    }
+
+    /**
+     * 设置联系人置顶状态
+     *
+     * @param wxContact 需要设置置顶状态的联系人
+     * @param isTop     是否置顶
+     */
+    public void topContact(WXContact wxContact, boolean isTop) {
+        LOGGER.info(String.format("设置（%s）的置顶状态：%s", wxContact.id, isTop));
+        wxAPI.webwxoplog(ReqOplog.CMD_TOP, isTop ? ReqOplog.OP_TOP_TRUE : ReqOplog.OP_TOP_FALSE, wxContact.id, null);
+    }
+
+    /**
+     * 修改聊天室名称
+     *
+     * @param wxGroup 目标聊天室
+     * @param name    目标名称
+     */
+    public void setGroupName(WXGroup wxGroup, String name) {
+        LOGGER.info(String.format("为群（%s）修改名称：%s", wxGroup.id, name));
+        wxAPI.webwxupdatechartroom(wxGroup.id, "modtopic", name, new LinkedList<String>());
     }
 
     /**
@@ -423,7 +472,7 @@ public final class WeChatClient {
      */
     public void addGroupMember(WXGroup wxGroup, List<String> userIds) {
         LOGGER.info(String.format("为群（%s）添加成员：%s", wxGroup.id, userIds));
-        wxAPI.webwxupdatechartroom(wxGroup.id, "addmember", userIds);
+        wxAPI.webwxupdatechartroom(wxGroup.id, "addmember", null, userIds);
     }
 
     /**
@@ -434,7 +483,7 @@ public final class WeChatClient {
      */
     public void delGroupMember(WXGroup wxGroup, List<String> userIds) {
         LOGGER.info(String.format("为群（%s）删除成员：%s", wxGroup.id, userIds));
-        wxAPI.webwxupdatechartroom(wxGroup.id, "delmember", userIds);
+        wxAPI.webwxupdatechartroom(wxGroup.id, "delmember", null, userIds);
     }
 
     /**
@@ -576,6 +625,7 @@ public final class WeChatClient {
          */
         private String initial() {
             try {
+                //通过Cookie获取重要参数
                 LOGGER.finer("正在获取Cookie");
                 for (HttpCookie cookie : wxAPI.httpOption.cookieManager.getCookieStore().getCookies()) {
                     if ("wxsid".equalsIgnoreCase(cookie.getName())) {
@@ -592,31 +642,20 @@ public final class WeChatClient {
                 RspInit rspInit = wxAPI.webwxinit();
                 wxContacts.setMe(wxAPI.host, rspInit.User);
 
-                //添加初始联系人，特殊账号等
-                LOGGER.finer("正在添加初始联系人，特殊账号等");
-                for (RspInit.User user : rspInit.ContactList) {
-                    wxContacts.putContact(wxAPI.host, user);
-                }
+                //获取并保存最近联系人
+                LOGGER.finer("正在获取并保存最近联系人");
+                loadContacts(rspInit.ChatSet, true);
 
-                //发送状态信息
+                //发送初始化状态信息
                 wxAPI.webwxstatusnotify(wxContacts.getMe().id, WXNotify.NOTIFY_INITED);
 
-                //获取好友、群、公众号列表
+                //获取好友、保存的群聊、公众号列表。
+                //这里获取的群没有群成员，不过也不能用fetchContact方法暴力获取群成员，因为这样数据量会很大
                 LOGGER.finer("正在获取好友、群、公众号列表");
                 RspGetContact rspGetContact = wxAPI.webwxgetcontact();
                 for (RspInit.User user : rspGetContact.MemberList) {
                     wxContacts.putContact(wxAPI.host, user);
                 }
-
-                //获取最近联系人
-                LOGGER.finer("正在获取最近联系人");
-                LinkedList<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
-                if (!XTools.strEmpty(rspInit.ChatSet)) {
-                    for (String userName : rspInit.ChatSet.split(",")) {
-                        contacts.add(new ReqBatchGetContact.Contact(userName, ""));
-                    }
-                }
-                loadContacts(contacts);
 
                 return null;
             } catch (Exception e) {
@@ -656,28 +695,39 @@ public final class WeChatClient {
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
                         if (rspSync.DelContactList != null) {
-                            //删除好友，删除群后的任意一条消息
+                            //删除好友立刻触发
+                            //删除群后的任意一条消息触发
+                            //被移出群不会触发（会收到一条被移出群的addMsg）
                             for (RspInit.User user : rspSync.DelContactList) {
                                 LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
                                 wxContacts.rmvContact(user.UserName);
                             }
                         }
                         if (rspSync.ModContactList != null) {
-                            //被拉入群第一条消息，群里有人加入,群里踢人之后第一条信息，添加好友
+                            //添加好友立刻触发
+                            //被拉入已存在的群立刻触发
+                            //被拉入新群第一条消息触发（同时收到2条addMsg，一条被拉入群，一条聊天消息）
+                            //群里有人加入或群里踢人或修改群信息之后第一条信息触发
                             for (RspInit.User user : rspSync.ModContactList) {
                                 LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
-                                wxContacts.putContact(wxAPI.host, user);
-                            }
-                        }
-                        if (rspSync.ModChatRoomMemberList != null) {
-                            for (RspInit.User user : rspSync.ModChatRoomMemberList) {
-                                LOGGER.finer(String.format("变更群成员（%s）", user.UserName));
-                                wxContacts.putContact(wxAPI.host, user);
+                                //由于在这里获取到的联系人（无论是群还是用户）的信息是不全的，所以使用接口重新获取
+                                fetchContact(user.UserName);
                             }
                         }
                         if (rspSync.AddMsgList != null) {
                             for (RspSync.AddMsg addMsg : rspSync.AddMsgList) {
-                                wxListener.onMessage(parseMessage(addMsg));
+                                //接收到的消息，文字、图片、语音、地理位置等等
+                                WXMessage wxMessage = parseMessage(addMsg);
+                                if (wxMessage instanceof WXNotify) {
+                                    //状态更新消息，需要处理后再交给监听器
+                                    WXNotify wxNotify = (WXNotify) wxMessage;
+                                    if (wxNotify.notifyCode == WXNotify.NOTIFY_SYNC_CONV) {
+                                        //会话同步，网页微信仅仅只获取了相关联系人详情
+                                        loadContacts(wxNotify.notifyContact, false);
+                                    }
+                                }
+                                //最后交给监听器处理
+                                wxListener.onMessage(wxMessage);
                             }
                         }
                     }
@@ -710,10 +760,18 @@ public final class WeChatClient {
                         fetchContact(msg.FromUserName);
                         message.fromUser = (WXUser) wxContacts.getContact(mGroupMsg.group(1));
                     }
+                    message.toContact = wxContacts.getContact(msg.ToUserName);
+                    if (message.toContact == null) {
+                        message.toContact = fetchContact(msg.ToUserName);
+                    }
                     message.content = mGroupMsg.group(2);
                 } else {
                     //不是群成员发送的消息
                     message.fromUser = null;
+                    message.toContact = wxContacts.getContact(msg.ToUserName);
+                    if (message.toContact == null) {
+                        message.toContact = fetchContact(msg.ToUserName);
+                    }
                     message.content = msg.Content;
                 }
             } else {
@@ -723,6 +781,10 @@ public final class WeChatClient {
                 if (message.fromUser == null) {
                     //联系人不存在（一般不会出现这种情况），手动获取联系人
                     message.fromUser = (WXUser) fetchContact(msg.FromUserName);
+                }
+                message.toContact = wxContacts.getContact(msg.ToUserName);
+                if (message.toContact == null) {
+                    message.toContact = fetchContact(msg.ToUserName);
                 }
                 message.content = msg.Content;
             }

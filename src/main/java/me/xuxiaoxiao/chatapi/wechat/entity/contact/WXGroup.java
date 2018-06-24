@@ -8,7 +8,8 @@ import java.util.HashMap;
  */
 public class WXGroup extends WXContact implements Serializable, Cloneable {
     /**
-     * 是否是详细的群信息，如果不是则可以通过WeChatClient.fetchContact方法获取群的详细信息
+     * 是否是详细的群信息（主要是是否获取过群成员）。
+     * 如果不是则可以通过WeChatClient.fetchContact方法获取群的详细信息。
      */
     public boolean isDetail;
     /**

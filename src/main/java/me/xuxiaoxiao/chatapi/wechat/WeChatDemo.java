@@ -101,6 +101,22 @@ public class WeChatDemo {
                         wechatClient.editRemark((WXUser) wechatClient.userContact(userId), remark);
                     }
                     break;
+                    case "topContact": {
+                        System.out.println("contactId:");
+                        String contactId = scanner.nextLine();
+                        System.out.println("isTop:");
+                        String isTop = scanner.nextLine();
+                        wechatClient.topContact(wechatClient.userContact(contactId), Boolean.valueOf(isTop.toLowerCase()));
+                    }
+                    break;
+                    case "setGroupName": {
+                        System.out.println("groupId:");
+                        String groupId = scanner.nextLine();
+                        System.out.println("name:");
+                        String name = scanner.nextLine();
+                        wechatClient.setGroupName(wechatClient.userGroup(groupId), name);
+                    }
+                    break;
                     case "addGroupMember": {
                         System.out.println("groupId:");
                         String groupId = scanner.nextLine();
@@ -110,20 +126,22 @@ public class WeChatDemo {
                     }
                     break;
                     case "delGroupMember": {
-                        System.out.println("chatRoomName:");
+                        System.out.println("groupId:");
                         String groupId = scanner.nextLine();
                         System.out.println("memberIds,split by ',':");
                         String memberIds = scanner.nextLine();
                         wechatClient.delGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
                     }
                     break;
-                    case "quit":
+                    case "quit": {
                         System.out.println("logging out");
                         wechatClient.shutdown();
-                        return;
-                    default:
+                    }
+                    return;
+                    default: {
                         System.out.println("未知指令");
-                        return;
+                    }
+                    break;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
