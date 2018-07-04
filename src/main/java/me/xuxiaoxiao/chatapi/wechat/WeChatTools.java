@@ -1,20 +1,22 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.xtools.common.XTools;
 import me.xuxiaoxiao.xtools.common.http.XRequest;
 
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URLConnection;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Random;
+import java.net.URLEncoder;
 
 final class WeChatTools {
     private static final char[] HEX = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
+    /**
+     * 判断文件的media类型，共有三种，pic：图片，video：短视频，doc：其他文件
+     *
+     * @param file 需要判断的文件
+     * @return 文件的media类型
+     */
     public static String fileType(File file) {
         switch (WeChatTools.fileSuffix(file)) {
             case "bmp":
@@ -29,6 +31,12 @@ final class WeChatTools {
         }
     }
 
+    /**
+     * 获取文件的扩展名，图片类型的文件，会根据文件内容自动判断文件扩展名
+     *
+     * @param file 要获取文件扩展名的文件
+     * @return 文件扩展名
+     */
     public static String fileSuffix(File file) {
         try (FileInputStream is = new FileInputStream(file)) {
             byte[] b = new byte[3];
@@ -73,98 +81,46 @@ final class WeChatTools {
         return new String(chars);
     }
 
-    public static class MultipartContent extends XRequest.ParamsContent {
-
-        public MultipartContent() {
-            this.boundary = XTools.md5(String.format("multipart-%d-%d", System.currentTimeMillis(), new Random().nextInt()));
-        }
-
-        @Override
-        public String contentType() {
-            return XRequest.MIME_MULTIPART + "; boundary=" + boundary;
-        }
-
-        @Override
-        public long contentLength() {
-            try {
-                long contentLength = 0;
-                for (XRequest.KeyValue keyValue : params) {
-                    if (keyValue.value instanceof Slice) {
-                        Slice slice = (Slice) keyValue.value;
-                        contentLength += (MINUS + boundary + CRLF).getBytes("utf-8").length;
-                        contentLength += String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, slice.fileName, CRLF).getBytes("utf-8").length;
-                        contentLength += String.format("Content-Type: %s%s", slice.fileMime, CRLF).getBytes("utf-8").length;
-                        contentLength += CRLF.getBytes("utf-8").length;
-                        contentLength += slice.count;
-                        contentLength += CRLF.getBytes("utf-8").length;
-                    } else if (keyValue.value instanceof File) {
-                        File file = (File) keyValue.value;
-                        contentLength += (MINUS + boundary + CRLF).getBytes("utf-8").length;
-                        contentLength += String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, file.getName(), CRLF).getBytes("utf-8").length;
-                        contentLength += String.format("Content-Type: %s%s", URLConnection.getFileNameMap().getContentTypeFor(file.getAbsolutePath()), CRLF).getBytes("utf-8").length;
-                        contentLength += CRLF.getBytes("utf-8").length;
-                        contentLength += file.length();
-                        contentLength += CRLF.getBytes("utf-8").length;
-                    } else {
-                        contentLength += (MINUS + boundary + CRLF).getBytes("utf-8").length;
-                        contentLength += String.format("Content-Disposition: form-data; name=\"%s\"%s", keyValue.key, CRLF).getBytes("utf-8").length;
-                        contentLength += CRLF.getBytes("utf-8").length;
-                        contentLength += String.valueOf(keyValue.value).getBytes("utf-8").length;
-                        contentLength += CRLF.getBytes("utf-8").length;
-                    }
-                }
-                contentLength = contentLength + (MINUS + boundary + MINUS + CRLF).getBytes("utf-8").length;
-                return contentLength;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return -1;
-            }
-        }
-
-        @Override
-        public void contentWrite(DataOutputStream doStream) throws Exception {
-            for (XRequest.KeyValue keyValue : params) {
-                if (keyValue.value instanceof Slice) {
-                    Slice slice = (Slice) keyValue.value;
-                    doStream.write((MINUS + boundary + CRLF).getBytes("utf-8"));
-                    doStream.write(String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, slice.fileName, CRLF).getBytes("utf-8"));
-                    doStream.write(String.format("Content-Type: %s%s", slice.fileMime, CRLF).getBytes("utf-8"));
-                    doStream.write(CRLF.getBytes("utf-8"));
-                    doStream.write(slice.slice, 0, slice.count);
-                    doStream.write(CRLF.getBytes("utf-8"));
-                } else if (keyValue.value instanceof File) {
-                    File file = (File) keyValue.value;
-                    doStream.write((MINUS + boundary + CRLF).getBytes("utf-8"));
-                    doStream.write(String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", keyValue.key, file.getName(), CRLF).getBytes("utf-8"));
-                    doStream.write(String.format("Content-Type: %s%s", Files.probeContentType(Paths.get(file.getAbsolutePath())), CRLF).getBytes("utf-8"));
-                    doStream.write(CRLF.getBytes("utf-8"));
-                    try (FileInputStream fiStream = new FileInputStream(file)) {
-                        XTools.streamToStream(fiStream, doStream);
-                    }
-                    doStream.write(CRLF.getBytes("utf-8"));
-                } else {
-                    doStream.write((MINUS + boundary + CRLF).getBytes("utf-8"));
-                    doStream.write(String.format("Content-Disposition: form-data; name=\"%s\"%s", keyValue.key, CRLF).getBytes("utf-8"));
-                    doStream.write(CRLF.getBytes("utf-8"));
-                    doStream.write(String.valueOf(keyValue.value).getBytes("utf-8"));
-                    doStream.write(CRLF.getBytes("utf-8"));
-                }
-            }
-            doStream.write((MINUS + boundary + MINUS + CRLF).getBytes("utf-8"));
-        }
-    }
-
-    public static final class Slice {
+    /**
+     * 文件分片的请求体Part，微信在上传文件时，超过1M的文件，会进行分片上传，每片大小会根据网速等因素调整。
+     * 为了简单起见，本库每片大小512KB
+     */
+    public static final class Slice extends XRequest.MultipartContent.Part {
+        /**
+         * 文件名称
+         */
         public String fileName;
+        /**
+         * 文件的MIME类型
+         */
         public String fileMime;
-        public byte[] slice;
+        /**
+         * 字节数组内容的数量，字节数组大小总是512K而实际内容可能并没有这么多
+         */
         public int count;
 
-        public Slice(String fileName, String fileMime, byte[] slice, int count) {
+        public Slice(String name, String fileName, String fileMime, byte[] slice, int count) {
+            super(name, slice);
             this.fileName = fileName;
             this.fileMime = fileMime;
-            this.slice = slice;
             this.count = count;
+        }
+
+        @Override
+        public String[] headers() throws IOException {
+            String disposition = String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"", name, URLEncoder.encode(fileName, "utf-8"));
+            String type = String.format("Content-Type: %s", fileMime);
+            return new String[]{disposition, type};
+        }
+
+        @Override
+        public long partLength() {
+            return count;
+        }
+
+        @Override
+        public void partWrite(DataOutputStream doStream) throws IOException {
+            doStream.write((byte[]) value, 0, count);
         }
     }
 }

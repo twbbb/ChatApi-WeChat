@@ -459,18 +459,16 @@ final class WeChatApi {
         if (file.length() < 1024L * 1024L) {
             XRequest request = XRequest.POST(String.format("https://file.%s/cgi-bin/mmwebwx-bin/webwxuploadmedia", host));
             request.query("f", "json");
-            WeChatTools.MultipartContent multipartContent = new WeChatTools.MultipartContent();
-            multipartContent.params.add(new XRequest.KeyValue("id", String.format("WU_FILE_%d", fileId)));
-            multipartContent.params.add(new XRequest.KeyValue("name", fileName));
-            multipartContent.params.add(new XRequest.KeyValue("type", fileMime));
-            multipartContent.params.add(new XRequest.KeyValue("lastModifiedDate", new Date(file.lastModified())));
-            multipartContent.params.add(new XRequest.KeyValue("size", fileLength));
-            multipartContent.params.add(new XRequest.KeyValue("mediatype", fileType));
-            multipartContent.params.add(new XRequest.KeyValue("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey, deviceId), clientMediaId, 2, fileLength, 0, fileLength, fileMd5, aesKey, signature, fromUserName, toUserName))));
-            multipartContent.params.add(new XRequest.KeyValue("webwx_data_ticket", dataTicket));
-            multipartContent.params.add(new XRequest.KeyValue("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket));
-            multipartContent.params.add(new XRequest.KeyValue("filename", file));
-            request.content(multipartContent);
+            request.content("id", String.format("WU_FILE_%d", fileId));
+            request.content("name", fileName);
+            request.content("type", fileMime);
+            request.content("lastModifiedDate", new Date(file.lastModified()));
+            request.content("size", fileLength);
+            request.content("mediatype", fileType);
+            request.content("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey, deviceId), clientMediaId, 2, fileLength, 0, fileLength, fileMd5, aesKey, signature, fromUserName, toUserName)));
+            request.content("webwx_data_ticket", dataTicket);
+            request.content("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket);
+            request.content("filename", file);
             return GSON.fromJson(XTools.http(httpOption, request).string(), RspUploadMedia.class);
         } else {
             RspUploadMedia rspUploadMedia = null;
@@ -479,28 +477,26 @@ final class WeChatApi {
                 for (long sliceIndex = 0, sliceCount = (long) Math.ceil(file.length() / 512D / 1024D); sliceIndex < sliceCount; sliceIndex++) {
                     XRequest request = XRequest.POST(String.format("https://file.%s/cgi-bin/mmwebwx-bin/webwxuploadmedia", host));
                     request.query("f", "json");
-                    WeChatTools.MultipartContent multipartContent = new WeChatTools.MultipartContent();
-                    multipartContent.params.add(new XRequest.KeyValue("id", String.format("WU_FILE_%d", fileId)));
-                    multipartContent.params.add(new XRequest.KeyValue("name", fileName));
-                    multipartContent.params.add(new XRequest.KeyValue("type", fileMime));
-                    multipartContent.params.add(new XRequest.KeyValue("lastModifiedDate", new Date(file.lastModified())));
-                    multipartContent.params.add(new XRequest.KeyValue("size", fileLength));
-                    multipartContent.params.add(new XRequest.KeyValue("chunks", sliceCount));
-                    multipartContent.params.add(new XRequest.KeyValue("chunk", sliceIndex));
-                    multipartContent.params.add(new XRequest.KeyValue("mediatype", fileType));
-                    multipartContent.params.add(new XRequest.KeyValue("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey, deviceId), clientMediaId, 2, fileLength, 0, fileLength, fileMd5, aesKey, signature, fromUserName, toUserName))));
-                    multipartContent.params.add(new XRequest.KeyValue("webwx_data_ticket", dataTicket));
-                    multipartContent.params.add(new XRequest.KeyValue("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket));
+                    request.content("id", String.format("WU_FILE_%d", fileId));
+                    request.content("name", fileName);
+                    request.content("type", fileMime);
+                    request.content("lastModifiedDate", new Date(file.lastModified()));
+                    request.content("size", fileLength);
+                    request.content("chunks", sliceCount);
+                    request.content("chunk", sliceIndex);
+                    request.content("mediatype", fileType);
+                    request.content("uploadmediarequest", GSON.toJson(new ReqUploadMedia(new BaseRequest(uin, sid, skey, deviceId), clientMediaId, 2, fileLength, 0, fileLength, fileMd5, aesKey, signature, fromUserName, toUserName)));
+                    request.content("webwx_data_ticket", dataTicket);
+                    request.content("pass_ticket", XTools.strEmpty(passticket) ? "undefined" : passticket);
                     int readCount;
-                    WeChatTools.Slice slice = new WeChatTools.Slice(fileName, fileMime, sliceBuffer, 0);
+                    WeChatTools.Slice slice = new WeChatTools.Slice("filename", fileName, fileMime, sliceBuffer, 0);
                     while ((readCount = bfinStream.read(sliceBuffer, slice.count, sliceBuffer.length - slice.count)) > 0) {
                         slice.count += readCount;
                         if (slice.count >= sliceBuffer.length) {
                             break;
                         }
                     }
-                    multipartContent.params.add(new XRequest.KeyValue("filename", slice));
-                    request.content(multipartContent);
+                    request.content("filename", slice);
                     rspUploadMedia = GSON.fromJson(XTools.http(httpOption, request).string(), RspUploadMedia.class);
                 }
             }
