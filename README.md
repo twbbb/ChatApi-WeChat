@@ -18,10 +18,10 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
     * 修改好友备注
     * 置顶/取消置顶联系人
     * 设置群名称
-    * 添加和移除群成员（网页微信创建群功能已被关闭）
+    * （网页微信创建群、添加群成员、移除群成员功能均已被关闭）
 
 ## 测试数据
-* 最后测试可用时间：2018-06-24
+* 最后测试可用时间：2018-07-07
 * 最长在线时间：7天
 
 ## 如何使用
@@ -31,14 +31,14 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
 <dependency>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.1.2</version>
+    <version>1.1.4</version>
 </dependency>
 ```
 
 * gradle依赖
 
 ```gradle
-implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.2'
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.4'
 ```
 
 * jar包
@@ -52,7 +52,7 @@ public class WeChatDemo {
     /**
      * 新建一个模拟微信客户端，并绑定一个简单的监听器
      */
-    public static WeChatClient wechatClient = new WeChatClient(new WeChatClient.WeChatListener() {
+    public static WeChatClient WECHAT_CLIENT = new WeChatClient(new WeChatClient.WeChatListener() {
         @Override
         public void onQRCode(String qrCode) {
             System.out.println("onQRCode：" + qrCode);
@@ -60,20 +60,20 @@ public class WeChatDemo {
         
         @Override
         public void onLogin() {
-            System.out.println(String.format("onLogin：您有%d名好友、活跃微信群%d个", wechatClient.userFriends().size(), wechatClient.userGroups().size()));
+            System.out.println(String.format("onLogin：您有%d名好友、活跃微信群%d个", WECHAT_CLIENT.userFriends().size(), WECHAT_CLIENT.userGroups().size()));
         }
         
         @Override
         public void onMessage(WXMessage message) {
             System.out.println("获取到消息：" + GSON.toJson(message));
-            if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(wechatClient.userMe().id)) {
+            if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(WECHAT_CLIENT.userMe().id)) {
                 //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
                 if (message.fromGroup != null) {
                     //群消息
-                    wechatClient.sendText(message.fromGroup, message.content);
+                    WECHAT_CLIENT.sendText(message.fromGroup, message.content);
                 } else {
                     //用户消息
-                    wechatClient.sendText(message.fromUser, message.content);
+                    WECHAT_CLIENT.sendText(message.fromUser, message.content);
                 }
             }
         }
@@ -81,7 +81,7 @@ public class WeChatDemo {
     
     public static void main(String[] args) {
         //启动模拟微信客户端
-        wechatClient.startup();
+        WECHAT_CLIENT.startup();
         Scanner scanner = new Scanner(System.in);
         while (true) {
             try {
@@ -92,7 +92,7 @@ public class WeChatDemo {
                         String toContactId = scanner.nextLine();
                         System.out.println("textContent:");
                         String text = scanner.nextLine();
-                        System.out.println("success:" + GSON.toJson(wechatClient.sendText(wechatClient.userContact(toContactId), text)));
+                        System.out.println("success:" + GSON.toJson(WECHAT_CLIENT.sendText(WECHAT_CLIENT.userContact(toContactId), text)));
                     }
                     break;
                     case "sendFile": {
@@ -100,7 +100,7 @@ public class WeChatDemo {
                         String toContactId = scanner.nextLine();
                         System.out.println("filePath:");
                         File file = new File(scanner.nextLine());
-                        System.out.println("success:" + GSON.toJson(wechatClient.sendFile(wechatClient.userContact(toContactId), file)));
+                        System.out.println("success:" + GSON.toJson(WECHAT_CLIENT.sendFile(WECHAT_CLIENT.userContact(toContactId), file)));
                     }
                     break;
                     case "revokeMsg": {
@@ -113,8 +113,8 @@ public class WeChatDemo {
                         WXUnknown wxUnknown = new WXUnknown();
                         wxUnknown.id = Long.valueOf(serverMsgId);
                         wxUnknown.idLocal = Long.valueOf(clientMsgId);
-                        wxUnknown.toContact = wechatClient.userContact(toContactId);
-                        wechatClient.revokeMsg(wxUnknown);
+                        wxUnknown.toContact = WECHAT_CLIENT.userContact(toContactId);
+                        WECHAT_CLIENT.revokeMsg(wxUnknown);
                     }
                     break;
                     case "passVerify": {
@@ -125,7 +125,7 @@ public class WeChatDemo {
                         WXVerify wxVerify = new WXVerify();
                         wxVerify.userId = userId;
                         wxVerify.ticket = verifyTicket;
-                        wechatClient.passVerify(wxVerify);
+                        WECHAT_CLIENT.passVerify(wxVerify);
                     }
                     break;
                     case "editRemark": {
@@ -133,7 +133,7 @@ public class WeChatDemo {
                         String userId = scanner.nextLine();
                         System.out.println("remarkName:");
                         String remark = scanner.nextLine();
-                        wechatClient.editRemark((WXUser) wechatClient.userContact(userId), remark);
+                        WECHAT_CLIENT.editRemark((WXUser) WECHAT_CLIENT.userContact(userId), remark);
                     }
                     break;
                     case "topContact": {
@@ -141,7 +141,7 @@ public class WeChatDemo {
                         String contactId = scanner.nextLine();
                         System.out.println("isTop:");
                         String isTop = scanner.nextLine();
-                        wechatClient.topContact(wechatClient.userContact(contactId), Boolean.valueOf(isTop.toLowerCase()));
+                        WECHAT_CLIENT.topContact(WECHAT_CLIENT.userContact(contactId), Boolean.valueOf(isTop.toLowerCase()));
                     }
                     break;
                     case "setGroupName": {
@@ -149,28 +149,12 @@ public class WeChatDemo {
                         String groupId = scanner.nextLine();
                         System.out.println("name:");
                         String name = scanner.nextLine();
-                        wechatClient.setGroupName(wechatClient.userGroup(groupId), name);
-                    }
-                    break;
-                    case "addGroupMember": {
-                        System.out.println("groupId:");
-                        String groupId = scanner.nextLine();
-                        System.out.println("memberIds,split by ',':");
-                        String memberIds = scanner.nextLine();
-                        wechatClient.addGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
-                    }
-                    break;
-                    case "delGroupMember": {
-                        System.out.println("groupId:");
-                        String groupId = scanner.nextLine();
-                        System.out.println("memberIds,split by ',':");
-                        String memberIds = scanner.nextLine();
-                        wechatClient.delGroupMember(wechatClient.userGroup(groupId), Arrays.asList(memberIds.split(",")));
+                        WECHAT_CLIENT.setGroupName(WECHAT_CLIENT.userGroup(groupId), name);
                     }
                     break;
                     case "quit": {
                         System.out.println("logging out");
-                        wechatClient.shutdown();
+                        WECHAT_CLIENT.shutdown();
                     }
                     return;
                     default: {

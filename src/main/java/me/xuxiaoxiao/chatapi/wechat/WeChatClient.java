@@ -465,28 +465,6 @@ public final class WeChatClient {
     }
 
     /**
-     * 添加聊天室的成员
-     *
-     * @param wxGroup 目标聊天室
-     * @param userIds 要添加的人员的id，必须是自己的好友
-     */
-    public void addGroupMember(WXGroup wxGroup, List<String> userIds) {
-        LOGGER.info(String.format("为群（%s）添加成员：%s", wxGroup.id, userIds));
-        wxAPI.webwxupdatechartroom(wxGroup.id, "addmember", null, userIds);
-    }
-
-    /**
-     * 移除聊天室的成员
-     *
-     * @param wxGroup 目标聊天室
-     * @param userIds 要移除的人员的id，必须是聊天室的成员，而且自己是管理员
-     */
-    public void delGroupMember(WXGroup wxGroup, List<String> userIds) {
-        LOGGER.info(String.format("为群（%s）删除成员：%s", wxGroup.id, userIds));
-        wxAPI.webwxupdatechartroom(wxGroup.id, "delmember", null, userIds);
-    }
-
-    /**
      * 模拟网页微信客户端监听器
      */
     public static abstract class WeChatListener {
