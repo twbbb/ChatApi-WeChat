@@ -28,6 +28,10 @@ public final class WeChatClient {
     public static final String INIT_EXCEPTION = "初始化异常";
     public static final String LISTEN_EXCEPTION = "监听异常";
 
+    public static final int ADD_CONTACT = 1;
+    public static final int MOD_CONTACT = 2;
+    public static final int DEL_CONTACT = 3;
+
     private static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
     private static final Pattern REX_GROUPMSG = Pattern.compile("(@[0-9a-zA-Z]+):<br/>([\\s\\S]*)");
     private static final Pattern REX_REVOKE_ID = Pattern.compile("&lt;msgid&gt;(\\d+)&lt;/msgid&gt;");
@@ -506,6 +510,15 @@ public final class WeChatClient {
         }
 
         /**
+         * 用户联系人变化
+         *
+         * @param contact 变化的联系人
+         * @param operate 联系人变更的类型，1：新增，2：修改，3：删除
+         */
+        public void onContact(WXContact contact, int operate) {
+        }
+
+        /**
          * 模拟网页微信客户端正常退出
          */
         public void onLogout() {
@@ -678,7 +691,7 @@ public final class WeChatClient {
                             //被移出群不会触发（会收到一条被移出群的addMsg）
                             for (RspInit.User user : rspSync.DelContactList) {
                                 LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
-                                wxContacts.rmvContact(user.UserName);
+                                wxListener.onContact(wxContacts.rmvContact(user.UserName), DEL_CONTACT);
                             }
                         }
                         if (rspSync.ModContactList != null) {
@@ -689,7 +702,11 @@ public final class WeChatClient {
                             for (RspInit.User user : rspSync.ModContactList) {
                                 LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
                                 //由于在这里获取到的联系人（无论是群还是用户）的信息是不全的，所以使用接口重新获取
-                                fetchContact(user.UserName);
+                                if (wxContacts.getContact(user.UserName) != null) {
+                                    wxListener.onContact(fetchContact(user.UserName), MOD_CONTACT);
+                                } else {
+                                    wxListener.onContact(fetchContact(user.UserName), ADD_CONTACT);
+                                }
                             }
                         }
                         if (rspSync.AddMsgList != null) {

@@ -21,7 +21,7 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
     * （网页微信创建群、添加群成员、移除群成员功能均已被关闭）
 
 ## 测试数据
-* 最后测试可用时间：2018-07-07
+* 最后测试可用时间：2018-10-14
 * 最长在线时间：7天
 
 ## 如何使用
@@ -31,14 +31,14 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
 <dependency>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.1.4</version>
+    <version>1.1.5</version>
 </dependency>
 ```
 
 * gradle依赖
 
 ```gradle
-implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.4'
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.5'
 ```
 
 * jar包
@@ -66,7 +66,11 @@ public class WeChatDemo {
         @Override
         public void onMessage(WXMessage message) {
             System.out.println("获取到消息：" + GSON.toJson(message));
-            if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(WECHAT_CLIENT.userMe().id)) {
+            
+            if (message instanceof WXVerify) {
+                //是好友请求消息，自动同意好友申请
+                WECHAT_CLIENT.passVerify((WXVerify) message);
+            } else if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(WECHAT_CLIENT.userMe().id)) {
                 //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
                 if (message.fromGroup != null) {
                     //群消息
@@ -76,6 +80,11 @@ public class WeChatDemo {
                     WECHAT_CLIENT.sendText(message.fromUser, message.content);
                 }
             }
+        }
+        
+        @Override
+        public void onContact(WXContact contact, int operate) {
+            System.out.println(String.format("检测到联系人变更:%s:%s", operate == WeChatClient.ADD_CONTACT ? "新增" : (operate == WeChatClient.DEL_CONTACT ? "删除" : "修改"), contact.name));
         }
     });
     

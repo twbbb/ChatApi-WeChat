@@ -50,6 +50,7 @@ final class WeChatApi {
     private String skey;
     private String passticket;
     private RspInit.SyncKey synckey;
+    private RspInit.SyncKey syncCheckKey;
 
     WeChatApi(File folder) {
         this.folder = folder;
@@ -188,7 +189,7 @@ final class WeChatApi {
         request.query("sid", this.sid);
         request.query("skey", this.skey);
         request.query("deviceId", BaseRequest.deviceId());
-        request.query("synckey", this.synckey);
+        request.query("synckey", this.syncCheckKey != null ? this.syncCheckKey : this.synckey);
         request.query("r", System.currentTimeMillis());
         request.query("_", time++);
         return new RspSyncCheck(XTools.http(httpOption, request).string());
@@ -206,7 +207,8 @@ final class WeChatApi {
         request.query("pass_ticket", this.passticket);
         request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqSync(new BaseRequest(uin, sid, skey), this.synckey))));
         RspSync rspSync = GSON.fromJson(XTools.http(httpOption, request).string(), RspSync.class);
-        this.synckey = rspSync.SyncCheckKey;
+        this.synckey = rspSync.SyncKey;
+        this.syncCheckKey = rspSync.SyncCheckKey;
         return rspSync;
     }
 

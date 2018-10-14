@@ -143,9 +143,9 @@ final class WeChatContacts {
      *
      * @param userId 联系人id
      */
-    void rmvContact(String userId) {
+    WXContact rmvContact(String userId) {
         this.groups.remove(userId);
         this.friends.remove(userId);
-        this.contacts.remove(userId);
+        return this.contacts.remove(userId);
     }
 }
