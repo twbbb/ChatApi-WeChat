@@ -79,7 +79,7 @@ public class RspInit {
         public long OwnerUin;
         public int MemberCount;
         public ArrayList<User> MemberList;
-        public int Statues;
+        public long Statues;
         public long AttrStatus;
         public long MemberStatus;
         public String Province;

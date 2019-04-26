@@ -6,23 +6,23 @@ import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.xtools.common.XTools;
-import me.xuxiaoxiao.xtools.common.http.XRequest;
+import me.xuxiaoxiao.xtools.common.http.executor.impl.XRequest;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpCookie;
 import java.util.*;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 
 /**
  * 模拟网页微信客户端
  */
 public final class WeChatClient {
+    public static final String CFG_PREFIX = "me.xuxiaoxiao$chatapi-wechat$";
+    public static final String LOG_TAG = "chatapi-wechat";
+
     public static final String LOGIN_TIMEOUT = "登陆超时";
     public static final String LOGIN_EXCEPTION = "登陆异常";
     public static final String INIT_EXCEPTION = "初始化异常";
@@ -32,34 +32,18 @@ public final class WeChatClient {
     public static final int MOD_CONTACT = 2;
     public static final int DEL_CONTACT = 3;
 
-    private static final Logger LOGGER = Logger.getLogger("me.xuxiaoxiao.chatapi.wechat");
     private static final Pattern REX_GROUPMSG = Pattern.compile("(@[0-9a-zA-Z]+):<br/>([\\s\\S]*)");
     private static final Pattern REX_REVOKE_ID = Pattern.compile("&lt;msgid&gt;(\\d+)&lt;/msgid&gt;");
-    private static final Pattern REX_REVOKE_REPLACE = Pattern.compile("&lt;replacemsg&gt;&lt;!\\[CDATA\\[([\\s\\S]*)\\]\\]&gt;&lt;/replacemsg&gt;");
+    private static final Pattern REX_REVOKE_REPLACE = Pattern.compile("&lt;replacemsg&gt;&lt;!\\[CDATA\\[([\\s\\S]*)]]&gt;&lt;/replacemsg&gt;");
 
     private final WeChatThread wxThread = new WeChatThread();
     private final WeChatContacts wxContacts = new WeChatContacts();
-    private final WeChatApi wxAPI;
+    private final WeChatApi wxAPI = new WeChatApi();
     private final WeChatListener wxListener;
 
     public WeChatClient(WeChatListener wxListener) {
-        this(wxListener, null, null);
-    }
-
-    public WeChatClient(WeChatListener wxListener, File folder, Handler handler) {
         Objects.requireNonNull(wxListener);
         this.wxListener = wxListener;
-        if (folder == null) {
-            folder = new File("");
-        }
-        if (handler == null) {
-            handler = new ConsoleHandler();
-            handler.setLevel(Level.FINER);
-        }
-        this.wxAPI = new WeChatApi(folder);
-        LOGGER.setLevel(handler.getLevel());
-        LOGGER.setUseParentHandlers(false);
-        LOGGER.addHandler(handler);
     }
 
     /**
@@ -207,7 +191,7 @@ public final class WeChatClient {
      * @return 文本消息
      */
     public WXText sendText(WXContact wxContact, String text) {
-        LOGGER.info(String.format("向（%s）发送消息：%s", wxContact.id, text));
+        XTools.logN(LOG_TAG, "向（%s）发送消息：%s", wxContact.id, text);
         RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, wxContact.id));
 
         WXText wxText = new WXText();
@@ -231,11 +215,11 @@ public final class WeChatClient {
     public WXMessage sendFile(WXContact wxContact, File file) {
         String suffix = WeChatTools.fileSuffix(file);
         if ("mp4".equals(suffix) && file.length() >= 20L * 1024L * 1024L) {
-            LOGGER.warning(String.format("向（%s）发送的视频文件大于20M，无法发送", wxContact.id));
+            XTools.logW(LOG_TAG, "向（%s）发送的视频文件大于20M，无法发送", wxContact.id);
             return null;
         } else {
             try {
-                LOGGER.info(String.format("向（%s）发送文件：%s", wxContact.id, file.getAbsolutePath()));
+                XTools.logN(LOG_TAG, "向（%s）发送文件：%s", wxContact.id, file.getAbsolutePath());
                 String mediaId = null, aesKey = null, signature = null;
                 if (file.length() >= 25L * 1024L * 1024L) {
                     RspCheckUpload rspCheckUpload = wxAPI.webwxcheckupload(file, wxContacts.getMe().id, wxContact.id);
@@ -330,7 +314,7 @@ public final class WeChatClient {
                             }
                     }
                 } else {
-                    LOGGER.severe(String.format("向（%s）发送的文件发送失败", wxContact.id));
+                    XTools.logE(LOG_TAG, "向（%s）发送的文件发送失败", wxContact.id);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -367,7 +351,7 @@ public final class WeChatClient {
      * @return 获取头像文件后的用户
      */
     public WXContact fetchAvatar(WXContact wxContact) {
-        wxContact.avatarFile = XTools.http(wxAPI.httpOption, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
+        wxContact.avatarFile = XTools.http(wxAPI.httpExecutor, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
         return wxContact;
     }
 
@@ -421,7 +405,7 @@ public final class WeChatClient {
      * @param wxMessage 需要撤回的微信消息
      */
     public void revokeMsg(WXMessage wxMessage) {
-        LOGGER.info(String.format("撤回向（%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.idLocal, wxMessage.id));
+        XTools.logN(LOG_TAG, "撤回向（%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.idLocal, wxMessage.id);
         wxAPI.webwxrevokemsg(wxMessage.idLocal, wxMessage.id, wxMessage.toContact.id);
     }
 
@@ -431,7 +415,7 @@ public final class WeChatClient {
      * @param wxVerify 好友验证消息
      */
     public void passVerify(WXVerify wxVerify) {
-        LOGGER.info(String.format("通过好友（%s）申请", wxVerify.userId));
+        XTools.logN(LOG_TAG, "通过好友（%s）申请", wxVerify.userId);
         wxAPI.webwxverifyuser(3, wxVerify.userId, wxVerify.ticket, "");
     }
 
@@ -442,7 +426,7 @@ public final class WeChatClient {
      * @param remark 备注名称
      */
     public void editRemark(WXUser wxUser, String remark) {
-        LOGGER.info(String.format("修改（%s）的备注：%s", wxUser.id, remark));
+        XTools.logN(LOG_TAG, "修改（%s）的备注：%s", wxUser.id, remark);
         wxAPI.webwxoplog(ReqOplog.CMD_REMARK, ReqOplog.OP_NONE, wxUser.id, remark);
     }
 
@@ -453,7 +437,7 @@ public final class WeChatClient {
      * @param isTop     是否置顶
      */
     public void topContact(WXContact wxContact, boolean isTop) {
-        LOGGER.info(String.format("设置（%s）的置顶状态：%s", wxContact.id, isTop));
+        XTools.logN(LOG_TAG, "设置（%s）的置顶状态：%s", wxContact.id, isTop);
         wxAPI.webwxoplog(ReqOplog.CMD_TOP, isTop ? ReqOplog.OP_TOP_TRUE : ReqOplog.OP_TOP_FALSE, wxContact.id, null);
     }
 
@@ -464,7 +448,7 @@ public final class WeChatClient {
      * @param name    目标名称
      */
     public void setGroupName(WXGroup wxGroup, String name) {
-        LOGGER.info(String.format("为群（%s）修改名称：%s", wxGroup.id, name));
+        XTools.logN(LOG_TAG, "为群（%s）修改名称：%s", wxGroup.id, name);
         wxAPI.webwxupdatechartroom(wxGroup.id, "modtopic", name, new LinkedList<String>());
     }
 
@@ -535,24 +519,24 @@ public final class WeChatClient {
             int loginCount = 0;
             while (!isInterrupted()) {
                 //用户登录
-                LOGGER.fine("正在登录");
+                XTools.logD(LOG_TAG, "正在登录");
                 String loginErr = login();
                 if (!XTools.strEmpty(loginErr)) {
-                    LOGGER.severe(String.format("登录出现错误：%s", loginErr));
+                    XTools.logE(LOG_TAG, "登录出现错误：%s", loginErr);
                     wxListener.onFailure(loginErr);
                     return;
                 }
                 //用户初始化
-                LOGGER.fine("正在初始化");
+                XTools.logD(LOG_TAG, "正在初始化");
                 String initErr = initial();
                 if (!XTools.strEmpty(initErr)) {
-                    LOGGER.severe(String.format("初始化出现错误：%s", initErr));
+                    XTools.logE(LOG_TAG, "初始化出现错误：%s", initErr);
                     wxListener.onFailure(initErr);
                     return;
                 }
                 wxListener.onLogin();
                 //同步消息
-                LOGGER.fine("正在监听消息");
+                XTools.logD(LOG_TAG, "正在监听消息");
                 String listenErr = listen();
                 if (!XTools.strEmpty(listenErr)) {
                     if (loginCount++ > 10) {
@@ -563,7 +547,7 @@ public final class WeChatClient {
                     }
                 }
                 //退出登录
-                LOGGER.finer("正在退出登录");
+                XTools.logD(LOG_TAG, "正在退出登录");
                 wxListener.onLogout();
                 return;
             }
@@ -578,24 +562,24 @@ public final class WeChatClient {
             try {
                 if (XTools.strEmpty(wxAPI.sid)) {
                     String qrCode = wxAPI.jslogin();
-                    LOGGER.finer(String.format("等待扫描二维码：%s", qrCode));
+                    XTools.logD(LOG_TAG, "等待扫描二维码：%s", qrCode);
                     wxListener.onQRCode(qrCode);
                     while (true) {
                         RspLogin rspLogin = wxAPI.login();
                         switch (rspLogin.code) {
                             case 200:
-                                LOGGER.finer("已授权登录");
+                                XTools.logD(LOG_TAG, "已授权登录");
                                 wxAPI.webwxnewloginpage(rspLogin.redirectUri);
                                 return null;
                             case 201:
-                                LOGGER.finer("已扫描二维码");
+                                XTools.logD(LOG_TAG, "已扫描二维码");
                                 wxListener.onAvatar(rspLogin.userAvatar);
                                 break;
                             case 408:
-                                LOGGER.finer("等待授权登录");
+                                XTools.logD(LOG_TAG, "等待授权登录");
                                 break;
                             default:
-                                LOGGER.warning("登录超时");
+                                XTools.logW(LOG_TAG, "登录超时");
                                 return LOGIN_TIMEOUT;
                         }
                     }
@@ -604,7 +588,7 @@ public final class WeChatClient {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                LOGGER.warning(String.format("登录异常：%s", Arrays.toString(e.getStackTrace())));
+                XTools.logW(LOG_TAG, e, "登录异常");
                 return LOGIN_EXCEPTION;
             }
         }
@@ -617,8 +601,8 @@ public final class WeChatClient {
         private String initial() {
             try {
                 //通过Cookie获取重要参数
-                LOGGER.finer("正在获取Cookie");
-                for (HttpCookie cookie : wxAPI.httpOption.cookieManager.getCookieStore().getCookies()) {
+                XTools.logD(LOG_TAG, "正在获取Cookie");
+                for (HttpCookie cookie : wxAPI.httpExecutor.getCookies()) {
                     if ("wxsid".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.sid = cookie.getValue();
                     } else if ("wxuin".equalsIgnoreCase(cookie.getName())) {
@@ -629,12 +613,12 @@ public final class WeChatClient {
                 }
 
                 //获取自身信息
-                LOGGER.finer("正在获取自身信息");
+                XTools.logD(LOG_TAG, "正在获取自身信息");
                 RspInit rspInit = wxAPI.webwxinit();
                 wxContacts.setMe(wxAPI.host, rspInit.User);
 
                 //获取并保存最近联系人
-                LOGGER.finer("正在获取并保存最近联系人");
+                XTools.logD(LOG_TAG, "正在获取并保存最近联系人");
                 loadContacts(rspInit.ChatSet, true);
 
                 //发送初始化状态信息
@@ -642,7 +626,7 @@ public final class WeChatClient {
 
                 //获取好友、保存的群聊、公众号列表。
                 //这里获取的群没有群成员，不过也不能用fetchContact方法暴力获取群成员，因为这样数据量会很大
-                LOGGER.finer("正在获取好友、群、公众号列表");
+                XTools.logD(LOG_TAG, "正在获取好友、群、公众号列表");
                 RspGetContact rspGetContact = wxAPI.webwxgetcontact();
                 for (RspInit.User user : rspGetContact.MemberList) {
                     wxContacts.putContact(wxAPI.host, user);
@@ -651,7 +635,7 @@ public final class WeChatClient {
                 return null;
             } catch (Exception e) {
                 e.printStackTrace();
-                LOGGER.warning(String.format("初始化异常：%s", e.getMessage()));
+                XTools.logW(LOG_TAG, "初始化异常：%s", e.getMessage());
                 return INIT_EXCEPTION;
             }
         }
@@ -667,21 +651,21 @@ public final class WeChatClient {
                 while (!isInterrupted()) {
                     RspSyncCheck rspSyncCheck;
                     try {
-                        LOGGER.finer("正在监听信息");
+                        XTools.logD(LOG_TAG, "正在监听信息");
                         rspSyncCheck = wxAPI.synccheck();
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (retryCount++ < 5) {
-                            LOGGER.warning(String.format("监听异常，重试第%d次：\n%s", retryCount, Arrays.toString(e.getStackTrace())));
+                            XTools.logW(LOG_TAG, e, "监听异常，重试第%d次", retryCount);
                             continue;
                         } else {
-                            LOGGER.severe(String.format("监听异常，重试次数过多：\n%s", Arrays.toString(e.getStackTrace())));
+                            XTools.logE(LOG_TAG, e, "监听异常，重试次数过多");
                             return LISTEN_EXCEPTION;
                         }
                     }
                     retryCount = 0;
                     if (rspSyncCheck.retcode > 0) {
-                        LOGGER.finer(String.format("停止监听信息：%d", rspSyncCheck.retcode));
+                        XTools.logW(LOG_TAG, "停止监听信息：%d", rspSyncCheck.retcode);
                         return null;
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
@@ -690,7 +674,7 @@ public final class WeChatClient {
                             //删除群后的任意一条消息触发
                             //被移出群不会触发（会收到一条被移出群的addMsg）
                             for (RspInit.User user : rspSync.DelContactList) {
-                                LOGGER.finer(String.format("删除联系人（%s）", user.UserName));
+                                XTools.logN(LOG_TAG, "删除联系人（%s）", user.UserName);
                                 wxListener.onContact(wxContacts.rmvContact(user.UserName), DEL_CONTACT);
                             }
                         }
@@ -700,7 +684,7 @@ public final class WeChatClient {
                             //被拉入新群第一条消息触发（同时收到2条addMsg，一条被拉入群，一条聊天消息）
                             //群里有人加入或群里踢人或修改群信息之后第一条信息触发
                             for (RspInit.User user : rspSync.ModContactList) {
-                                LOGGER.finer(String.format("变更联系人（%s）", user.UserName));
+                                XTools.logN(LOG_TAG, "变更联系人（%s）", user.UserName);
                                 //由于在这里获取到的联系人（无论是群还是用户）的信息是不全的，所以使用接口重新获取
                                 if (wxContacts.getContact(user.UserName) != null) {
                                     wxListener.onContact(fetchContact(user.UserName), MOD_CONTACT);
@@ -730,7 +714,7 @@ public final class WeChatClient {
                 return null;
             } catch (Exception e) {
                 e.printStackTrace();
-                LOGGER.warning(String.format("监听消息异常：\n%s", Arrays.toString(e.getStackTrace())));
+                XTools.logW(LOG_TAG, e, "监听消息异常");
                 return LISTEN_EXCEPTION;
             }
         }
@@ -918,7 +902,7 @@ public final class WeChatClient {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
-                LOGGER.warning("消息解析失败");
+                XTools.logW(LOG_TAG, "消息解析失败");
             }
             return parseCommon(msg, new WXUnknown());
         }

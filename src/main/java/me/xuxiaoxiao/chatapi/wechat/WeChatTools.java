@@ -1,11 +1,11 @@
 package me.xuxiaoxiao.chatapi.wechat;
 
-import me.xuxiaoxiao.xtools.common.http.XRequest;
+import me.xuxiaoxiao.xtools.common.http.executor.impl.XRequest;
 
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URLEncoder;
 
 final class WeChatTools {
@@ -119,7 +119,7 @@ final class WeChatTools {
         }
 
         @Override
-        public void partWrite(DataOutputStream doStream) throws IOException {
+        public void partWrite(OutputStream doStream) throws IOException {
             doStream.write((byte[]) value, 0, count);
         }
     }
