@@ -6,6 +6,7 @@ import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.xtools.common.XTools;
+import me.xuxiaoxiao.xtools.common.http.XHttpTools;
 import me.xuxiaoxiao.xtools.common.http.executor.impl.XRequest;
 
 import java.io.File;
@@ -14,7 +15,6 @@ import java.net.HttpCookie;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 
 /**
  * 模拟网页微信客户端
@@ -351,7 +351,7 @@ public final class WeChatClient {
      * @return 获取头像文件后的用户
      */
     public WXContact fetchAvatar(WXContact wxContact) {
-        wxContact.avatarFile = XTools.http(wxAPI.httpExecutor, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
+        wxContact.avatarFile = XTools.http(XHttpTools.EXECUTOR, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
         return wxContact;
     }
 
@@ -602,7 +602,7 @@ public final class WeChatClient {
             try {
                 //通过Cookie获取重要参数
                 XTools.logD(LOG_TAG, "正在获取Cookie");
-                for (HttpCookie cookie : wxAPI.httpExecutor.getCookies()) {
+                for (HttpCookie cookie : XHttpTools.EXECUTOR.getCookies()) {
                     if ("wxsid".equalsIgnoreCase(cookie.getName())) {
                         wxAPI.sid = cookie.getValue();
                     } else if ("wxuin".equalsIgnoreCase(cookie.getName())) {
