@@ -1,8 +1,6 @@
 # ChatApi-WeChat
 Java版本微信聊天接口，使用网页微信API，让你能够开发自己的微信聊天机器人。
 
-Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/ChatApi-QQ)
-
 ## 这是什么？
 * 这是一个模拟的微信聊天客户端
 * 该客户端使用的接口来自于网页版微信
@@ -31,14 +29,14 @@ Java版本QQ聊天接口请看[ChatApi-QQ](https://github.com/xuxiaoxiao-xxx/Cha
 <dependency>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.1.5</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
 * gradle依赖
 
 ```gradle
-implementation 'me.xuxiaoxiao:chatapi-wechat:1.1.5'
+implementation 'me.xuxiaoxiao:chatapi-wechat:1.2.0'
 ```
 
 * jar包
