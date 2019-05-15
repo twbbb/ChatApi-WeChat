@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXContact;
 import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.WXLocation;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.WXMessage;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.WXText;
 import me.xuxiaoxiao.chatapi.wechat.entity.message.WXUnknown;
@@ -35,6 +36,15 @@ public class WeChatDemo {
             if (message instanceof WXVerify) {
                 //是好友请求消息，自动同意好友申请
                 WECHAT_CLIENT.passVerify((WXVerify) message);
+            } else if (message instanceof WXLocation && message.fromUser != null && !message.fromUser.id.equals(WECHAT_CLIENT.userMe().id)) {
+                // 如果对方告诉我他的位置，发送消息的不是自己，则我也告诉他我的位置
+                if (message.fromGroup != null) {
+                    // 群消息
+                    WECHAT_CLIENT.sendLocation(message.fromGroup, "120.14556", "30.23856", "我在这里", "西湖");
+                } else {
+                    // 用户消息
+                    WECHAT_CLIENT.sendLocation(message.fromUser, "120.14556", "30.23856", "我在这里", "西湖");
+                }
             } else if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(WECHAT_CLIENT.userMe().id)) {
                 //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
                 if (message.fromGroup != null) {
@@ -124,6 +134,20 @@ public class WeChatDemo {
                         System.out.println("name:");
                         String name = scanner.nextLine();
                         WECHAT_CLIENT.setGroupName(WECHAT_CLIENT.userGroup(groupId), name);
+                    }
+                    break;
+                    case "sendLocation": {
+                        System.out.println("toContactId:");
+                        String toContactId = scanner.nextLine();
+                        System.out.println("longitude:");
+                        String longitude = scanner.nextLine();
+                        System.out.println("latitude:");
+                        String latitude = scanner.nextLine();
+                        System.out.println("title:");
+                        String title = scanner.nextLine();
+                        System.out.println("lable:");
+                        String lable = scanner.nextLine();
+                        System.out.println("success:" + GSON.toJson(WECHAT_CLIENT.sendLocation(WECHAT_CLIENT.userContact(toContactId), longitude, latitude, title, lable)));
                     }
                     break;
                     case "quit": {

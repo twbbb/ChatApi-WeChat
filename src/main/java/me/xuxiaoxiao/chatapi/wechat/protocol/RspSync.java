@@ -70,6 +70,10 @@ public class RspSync {
          */
         public static final int TYPE_EMOJI = 47;
         /**
+         * 定位消息
+         */
+        public static final int TYPE_LOCATION = 48;
+        /**
          * 转账、文件、链接、笔记等
          */
         public static final int TYPE_OTHER = 49;
