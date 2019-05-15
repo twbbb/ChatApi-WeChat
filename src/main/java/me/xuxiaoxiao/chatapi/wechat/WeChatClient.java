@@ -324,6 +324,38 @@ public final class WeChatClient {
     }
 
     /**
+     * 发送位置消息
+     * 
+     * 经纬度坐标可以通过腾讯坐标拾取工具获得(https://lbs.qq.com/tool/getpoint)
+     * 其拾取的坐标默认格式为 lat,lon
+     * 
+     * @param wxContact 目标联系人
+     * @param lon       经度
+     * @param lat       纬度
+     * @param title     定位消息模块标题
+     * @param lable     定位消息模块二级描述
+     * @return 定位消息
+     */
+    public WXLocation sendLocation(WXContact wxContact, String lon, String lat, String title, String lable) {
+        XTools.logN(LOG_TAG, "向（%s）发送位置信息，坐标：%s,%s，说明：%s(%s)", wxContact.id, lon, lat, title, lable);
+        StringBuilder sbLocationMsg = new StringBuilder();
+        sbLocationMsg.append("<?xml version=\"1.0\"?>\n");
+        sbLocationMsg.append("<msg>\n");
+        sbLocationMsg.append("<location x=\""+lat+"\" y=\""+lon+"\" scale=\"15\" label=\""+lable+"\" maptype=\"roadmap\" poiname=\""+title+"\" poiid=\"City\" />\n");
+        sbLocationMsg.append("</msg>\n");
+        RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_LOCATION, null, 0, sbLocationMsg.toString(), null, wxContacts.getMe().id, wxContact.id));
+        WXLocation wxLocation = new WXLocation();
+        wxLocation.id = Long.valueOf(rspSendMsg.MsgID);
+        wxLocation.idLocal = Long.valueOf(rspSendMsg.LocalID);
+        wxLocation.timestamp = System.currentTimeMillis();
+        wxLocation.fromGroup = null;
+        wxLocation.fromUser = wxContacts.getMe();
+        wxLocation.toContact = wxContact;
+        wxLocation.content = sbLocationMsg.toString();
+        return wxLocation;
+    }
+
+    /**
      * 获取用户联系人，如果获取的联系人是群组，则会自动获取群成员的详细信息
      * <strong>在联系人列表中获取到的群，没有群成员，可以通过这个方法，获取群的详细信息</strong>
      *
