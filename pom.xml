@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>me.xuxiaoxiao</groupId>
     <artifactId>chatapi-wechat</artifactId>
-    <version>1.2.1</version>
+    <version>1.3.0</version>
     <name>chatapi-wechat</name>
     <description>Java版本微信聊天接口，使用网页微信API，让你能够开发自己的微信聊天机器人。</description>
     <url>https://github.com/xuxiaoxiao-xxx/ChatApi-WeChat</url>
@@ -38,6 +38,11 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.8.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>3.0.2</version>
         </dependency>
     </dependencies>
 

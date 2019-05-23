@@ -9,6 +9,8 @@ import me.xuxiaoxiao.xtools.common.XTools;
 import me.xuxiaoxiao.xtools.common.http.XHttpTools;
 import me.xuxiaoxiao.xtools.common.http.executor.impl.XRequest;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpCookie;
@@ -28,9 +30,12 @@ public final class WeChatClient {
     public static final String INIT_EXCEPTION = "初始化异常";
     public static final String LISTEN_EXCEPTION = "监听异常";
 
-    public static final int ADD_CONTACT = 1;
-    public static final int MOD_CONTACT = 2;
-    public static final int DEL_CONTACT = 3;
+    public static final int STATUS_EXCEPTION = -1;
+    public static final int STATUS_READY = 0;
+    public static final int STATUS_SCAN = 1;
+    public static final int STATUS_PERMIT = 2;
+    public static final int STATUS_WORKING = 3;
+    public static final int STATUS_LOGOUT = 4;
 
     private static final Pattern REX_GROUPMSG = Pattern.compile("(@[0-9a-zA-Z]+):<br/>([\\s\\S]*)");
     private static final Pattern REX_REVOKE_ID = Pattern.compile("&lt;msgid&gt;(\\d+)&lt;/msgid&gt;");
@@ -39,11 +44,95 @@ public final class WeChatClient {
     private final WeChatThread wxThread = new WeChatThread();
     private final WeChatContacts wxContacts = new WeChatContacts();
     private final WeChatApi wxAPI = new WeChatApi();
-    private final WeChatListener wxListener;
+    private volatile WeChatListener wxListener;
+    private volatile int status = STATUS_READY;
 
-    public WeChatClient(WeChatListener wxListener) {
-        Objects.requireNonNull(wxListener);
-        this.wxListener = wxListener;
+    /**
+     * 处理监听器，二维码事件
+     *
+     * @param qrcode 二维码地址
+     */
+    private void handleQRCode(@Nonnull String qrcode) {
+        this.status = STATUS_SCAN;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onQRCode(this, qrcode);
+        }
+    }
+
+    /**
+     * 处理监听器，头像事件
+     *
+     * @param base64Avatar base64编码头像
+     */
+    private void handleAvatar(@Nonnull String base64Avatar) {
+        this.status = STATUS_PERMIT;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onAvatar(this, base64Avatar);
+        }
+    }
+
+    /**
+     * 处理监听器，异常事件
+     *
+     * @param reason 异常信息
+     */
+    private void handleFailure(@Nonnull String reason) {
+        this.status = STATUS_EXCEPTION;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onFailure(this, reason);
+        }
+    }
+
+    /**
+     * 处理监听器，登录完成事件
+     */
+    private void handleLogin() {
+        this.status = STATUS_WORKING;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onLogin(this);
+        }
+    }
+
+    /**
+     * 处理监听器，新消息事件
+     *
+     * @param message 微信消息
+     */
+    private void handleMessage(WXMessage message) {
+        this.status = STATUS_WORKING;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onMessage(this, message);
+        }
+    }
+
+    /**
+     * 处理监听器，联系人变动事件
+     *
+     * @param oldContact 旧联系人，新增联系人时为null
+     * @param newContact 新联系人，删除联系人时为null
+     */
+    private void handleContact(WXContact oldContact, WXContact newContact) {
+        this.status = STATUS_WORKING;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onContact(this, oldContact, newContact);
+        }
+    }
+
+    /**
+     * 处理监听器，退出登录事件
+     */
+    private void handleLogout() {
+        this.status = STATUS_LOGOUT;
+        WeChatListener listener = this.wxListener;
+        if (listener != null) {
+            listener.onLogout(this);
+        }
     }
 
     /**
@@ -51,7 +140,7 @@ public final class WeChatClient {
      *
      * @param userNames 逗号分隔的联系人userName
      */
-    private void loadContacts(String userNames, boolean useCache) {
+    private void loadContacts(@Nonnull String userNames, boolean useCache) {
         if (!XTools.strEmpty(userNames)) {
             LinkedList<ReqBatchGetContact.Contact> contacts = new LinkedList<>();
             for (String userName : userNames.split(",")) {
@@ -68,7 +157,7 @@ public final class WeChatClient {
      *
      * @param contacts 要获取的联系人的列表，数量和类型不限
      */
-    private void loadContacts(List<ReqBatchGetContact.Contact> contacts, boolean useCache) {
+    private void loadContacts(@Nonnull List<ReqBatchGetContact.Contact> contacts, boolean useCache) {
         if (useCache) {
             Iterator<ReqBatchGetContact.Contact> iterator = contacts.iterator();
             while (iterator.hasNext()) {
@@ -103,6 +192,25 @@ public final class WeChatClient {
     }
 
     /**
+     * 设置客户端的监听器
+     *
+     * @param listener 监听器对象
+     */
+    public void setListener(@Nonnull WeChatListener listener) {
+        this.wxListener = listener;
+    }
+
+    /**
+     * 获取客户端的监听器
+     *
+     * @return 监听器对象
+     */
+    @Nullable
+    public WeChatListener getListener() {
+        return this.wxListener;
+    }
+
+    /**
      * 启动客户端，注意：一个客户端类的实例只能被启动一次
      */
     public void startup() {
@@ -110,12 +218,12 @@ public final class WeChatClient {
     }
 
     /**
-     * 客户端是否正在运行
+     * 获取客户端的状态
      *
-     * @return 是否正在运行
+     * @return 客户端的当前状态
      */
-    public boolean isWorking() {
-        return !wxThread.isInterrupted();
+    public int status() {
+        return this.status;
     }
 
     /**
@@ -141,7 +249,8 @@ public final class WeChatClient {
      * @param userId 好友的id
      * @return 好友的信息
      */
-    public WXUser userFriend(String userId) {
+    @Nullable
+    public WXUser userFriend(@Nonnull String userId) {
         return wxContacts.getFriend(userId);
     }
 
@@ -150,6 +259,7 @@ public final class WeChatClient {
      *
      * @return 用户所有好友
      */
+    @Nonnull
     public HashMap<String, WXUser> userFriends() {
         return wxContacts.getFriends();
     }
@@ -160,7 +270,8 @@ public final class WeChatClient {
      * @param groupId 群id
      * @return 群信息
      */
-    public WXGroup userGroup(String groupId) {
+    @Nullable
+    public WXGroup userGroup(@Nonnull String groupId) {
         return wxContacts.getGroup(groupId);
     }
 
@@ -169,6 +280,7 @@ public final class WeChatClient {
      *
      * @return 用户所有群
      */
+    @Nonnull
     public HashMap<String, WXGroup> userGroups() {
         return wxContacts.getGroups();
     }
@@ -179,7 +291,8 @@ public final class WeChatClient {
      * @param contactId 联系人id
      * @return 联系人信息
      */
-    public WXContact userContact(String contactId) {
+    @Nullable
+    public WXContact userContact(@Nonnull String contactId) {
         return wxContacts.getContact(contactId);
     }
 
@@ -190,7 +303,8 @@ public final class WeChatClient {
      * @param text      要发送的文字
      * @return 文本消息
      */
-    public WXText sendText(WXContact wxContact, String text) {
+    @Nonnull
+    public WXText sendText(@Nonnull WXContact wxContact, @Nonnull String text) {
         XTools.logN(LOG_TAG, "向（%s）发送消息：%s", wxContact.id, text);
         RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, wxContact.id));
 
@@ -212,7 +326,8 @@ public final class WeChatClient {
      * @param file      要发送的文件
      * @return 图像或附件消息
      */
-    public WXMessage sendFile(WXContact wxContact, File file) {
+    @Nullable
+    public WXMessage sendFile(@Nonnull WXContact wxContact, @Nonnull File file) {
         String suffix = WeChatTools.fileSuffix(file);
         if ("mp4".equals(suffix) && file.length() >= 20L * 1024L * 1024L) {
             XTools.logW(LOG_TAG, "向（%s）发送的视频文件大于20M，无法发送", wxContact.id);
@@ -325,10 +440,11 @@ public final class WeChatClient {
 
     /**
      * 发送位置消息
-     * 
+     * <p>
      * 经纬度坐标可以通过腾讯坐标拾取工具获得(https://lbs.qq.com/tool/getpoint)
      * 其拾取的坐标默认格式为 lat,lon
-     * 
+     * </p>
+     *
      * @param wxContact 目标联系人
      * @param lon       经度
      * @param lat       纬度
@@ -336,12 +452,13 @@ public final class WeChatClient {
      * @param lable     定位消息模块二级描述
      * @return 定位消息
      */
-    public WXLocation sendLocation(WXContact wxContact, String lon, String lat, String title, String lable) {
+    @Nonnull
+    public WXLocation sendLocation(@Nonnull WXContact wxContact, @Nonnull String lon, @Nonnull String lat, @Nonnull String title, @Nonnull String lable) {
         XTools.logN(LOG_TAG, "向（%s）发送位置信息，坐标：%s,%s，说明：%s(%s)", wxContact.id, lon, lat, title, lable);
         StringBuilder sbLocationMsg = new StringBuilder();
         sbLocationMsg.append("<?xml version=\"1.0\"?>\n");
         sbLocationMsg.append("<msg>\n");
-        sbLocationMsg.append("<location x=\""+lat+"\" y=\""+lon+"\" scale=\"15\" label=\""+lable+"\" maptype=\"roadmap\" poiname=\""+title+"\" poiid=\"City\" />\n");
+        sbLocationMsg.append("<location x=\"" + lat + "\" y=\"" + lon + "\" scale=\"15\" label=\"" + lable + "\" maptype=\"roadmap\" poiname=\"" + title + "\" poiid=\"City\" />\n");
         sbLocationMsg.append("</msg>\n");
         RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_LOCATION, null, 0, sbLocationMsg.toString(), null, wxContacts.getMe().id, wxContact.id));
         WXLocation wxLocation = new WXLocation();
@@ -362,7 +479,8 @@ public final class WeChatClient {
      * @param contactId 联系人id
      * @return 联系人的详细信息
      */
-    public WXContact fetchContact(String contactId) {
+    @Nullable
+    public WXContact fetchContact(@Nonnull String contactId) {
         loadContacts(contactId, false);
         WXContact contact = wxContacts.getContact(contactId);
         if (contact instanceof WXGroup) {
@@ -382,7 +500,8 @@ public final class WeChatClient {
      * @param wxContact 要获取头像文件的用户
      * @return 获取头像文件后的用户
      */
-    public WXContact fetchAvatar(WXContact wxContact) {
+    @Nonnull
+    public WXContact fetchAvatar(@Nonnull WXContact wxContact) {
         wxContact.avatarFile = XTools.http(XHttpTools.EXECUTOR, XRequest.GET(wxContact.avatarUrl)).file(wxAPI.folder.getAbsolutePath() + File.separator + String.format("avatar-%d.jpg", System.currentTimeMillis() + new Random().nextInt(1000)));
         return wxContact;
     }
@@ -393,7 +512,8 @@ public final class WeChatClient {
      * @param wxImage 要获取大图的图片消息
      * @return 获取大图后的图片消息
      */
-    public WXImage fetchImage(WXImage wxImage) {
+    @Nonnull
+    public WXImage fetchImage(@Nonnull WXImage wxImage) {
         wxImage.origin = wxAPI.webwxgetmsgimg(wxImage.id, "big");
         return wxImage;
     }
@@ -404,7 +524,8 @@ public final class WeChatClient {
      * @param wxVoice 语音消息
      * @return 获取语音文件后的语音消息
      */
-    public WXVoice fetchVoice(WXVoice wxVoice) {
+    @Nonnull
+    public WXVoice fetchVoice(@Nonnull WXVoice wxVoice) {
         wxVoice.voice = wxAPI.webwxgetvoice(wxVoice.id);
         return wxVoice;
     }
@@ -415,7 +536,8 @@ public final class WeChatClient {
      * @param wxVideo 视频消息
      * @return 获取视频文件后的视频消息
      */
-    public WXVideo fetchVideo(WXVideo wxVideo) {
+    @Nonnull
+    public WXVideo fetchVideo(@Nonnull WXVideo wxVideo) {
         wxVideo.video = wxAPI.webwxgetvideo(wxVideo.id);
         return wxVideo;
     }
@@ -426,7 +548,8 @@ public final class WeChatClient {
      * @param wxFile 文件消息
      * @return 获取附件文件后的文件消息
      */
-    public WXFile fetchFile(WXFile wxFile) {
+    @Nonnull
+    public WXFile fetchFile(@Nonnull WXFile wxFile) {
         wxFile.file = wxAPI.webwxgetmedia(wxFile.id, wxFile.fileName, wxFile.fileId, wxFile.fromUser.id);
         return wxFile;
     }
@@ -436,7 +559,7 @@ public final class WeChatClient {
      *
      * @param wxMessage 需要撤回的微信消息
      */
-    public void revokeMsg(WXMessage wxMessage) {
+    public void revokeMsg(@Nonnull WXMessage wxMessage) {
         XTools.logN(LOG_TAG, "撤回向（%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.idLocal, wxMessage.id);
         wxAPI.webwxrevokemsg(wxMessage.idLocal, wxMessage.id, wxMessage.toContact.id);
     }
@@ -446,7 +569,7 @@ public final class WeChatClient {
      *
      * @param wxVerify 好友验证消息
      */
-    public void passVerify(WXVerify wxVerify) {
+    public void passVerify(@Nonnull WXVerify wxVerify) {
         XTools.logN(LOG_TAG, "通过好友（%s）申请", wxVerify.userId);
         wxAPI.webwxverifyuser(3, wxVerify.userId, wxVerify.ticket, "");
     }
@@ -457,7 +580,7 @@ public final class WeChatClient {
      * @param wxUser 目标用户
      * @param remark 备注名称
      */
-    public void editRemark(WXUser wxUser, String remark) {
+    public void editRemark(@Nonnull WXUser wxUser, @Nonnull String remark) {
         XTools.logN(LOG_TAG, "修改（%s）的备注：%s", wxUser.id, remark);
         wxAPI.webwxoplog(ReqOplog.CMD_REMARK, ReqOplog.OP_NONE, wxUser.id, remark);
     }
@@ -468,7 +591,7 @@ public final class WeChatClient {
      * @param wxContact 需要设置置顶状态的联系人
      * @param isTop     是否置顶
      */
-    public void topContact(WXContact wxContact, boolean isTop) {
+    public void topContact(@Nonnull WXContact wxContact, boolean isTop) {
         XTools.logN(LOG_TAG, "设置（%s）的置顶状态：%s", wxContact.id, isTop);
         wxAPI.webwxoplog(ReqOplog.CMD_TOP, isTop ? ReqOplog.OP_TOP_TRUE : ReqOplog.OP_TOP_FALSE, wxContact.id, null);
     }
@@ -479,7 +602,7 @@ public final class WeChatClient {
      * @param wxGroup 目标聊天室
      * @param name    目标名称
      */
-    public void setGroupName(WXGroup wxGroup, String name) {
+    public void setGroupName(@Nonnull WXGroup wxGroup, @Nonnull String name) {
         XTools.logN(LOG_TAG, "为群（%s）修改名称：%s", wxGroup.id, name);
         wxAPI.webwxupdatechartroom(wxGroup.id, "modtopic", name, new LinkedList<String>());
     }
@@ -493,14 +616,14 @@ public final class WeChatClient {
          *
          * @param qrCode 用户登录二维码的url
          */
-        public abstract void onQRCode(String qrCode);
+        public abstract void onQRCode(@Nonnull WeChatClient client, @Nonnull String qrCode);
 
         /**
          * 获取用户头像，base64编码
          *
          * @param base64Avatar base64编码的用户头像
          */
-        public void onAvatar(String base64Avatar) {
+        public void onAvatar(@Nonnull WeChatClient client, @Nonnull String base64Avatar) {
         }
 
         /**
@@ -508,13 +631,13 @@ public final class WeChatClient {
          *
          * @param reason 错误原因
          */
-        public void onFailure(String reason) {
+        public void onFailure(@Nonnull WeChatClient client, @Nonnull String reason) {
         }
 
         /**
          * 用户登录并初始化成功
          */
-        public void onLogin() {
+        public void onLogin(@Nonnull WeChatClient client) {
         }
 
         /**
@@ -522,22 +645,23 @@ public final class WeChatClient {
          *
          * @param message 用户获取到的消息
          */
-        public void onMessage(WXMessage message) {
+        public void onMessage(@Nonnull WeChatClient client, @Nonnull WXMessage message) {
         }
 
         /**
          * 用户联系人变化
          *
-         * @param contact 变化的联系人
-         * @param operate 联系人变更的类型，1：新增，2：修改，3：删除
+         * @param client     微信客户端
+         * @param oldContact 旧联系人，新增联系人时为null
+         * @param newContact 新联系人，删除联系人时为null
          */
-        public void onContact(WXContact contact, int operate) {
+        public void onContact(@Nonnull WeChatClient client, @Nullable WXContact oldContact, @Nullable WXContact newContact) {
         }
 
         /**
          * 模拟网页微信客户端正常退出
          */
-        public void onLogout() {
+        public void onLogout(@Nonnull WeChatClient client) {
         }
     }
 
@@ -555,7 +679,7 @@ public final class WeChatClient {
                 String loginErr = login();
                 if (!XTools.strEmpty(loginErr)) {
                     XTools.logE(LOG_TAG, "登录出现错误：%s", loginErr);
-                    wxListener.onFailure(loginErr);
+                    handleFailure(loginErr);
                     return;
                 }
                 //用户初始化
@@ -563,16 +687,16 @@ public final class WeChatClient {
                 String initErr = initial();
                 if (!XTools.strEmpty(initErr)) {
                     XTools.logE(LOG_TAG, "初始化出现错误：%s", initErr);
-                    wxListener.onFailure(initErr);
+                    handleFailure(initErr);
                     return;
                 }
-                wxListener.onLogin();
+                handleLogin();
                 //同步消息
                 XTools.logD(LOG_TAG, "正在监听消息");
                 String listenErr = listen();
                 if (!XTools.strEmpty(listenErr)) {
                     if (loginCount++ > 10) {
-                        wxListener.onFailure(listenErr);
+                        handleFailure(listenErr);
                         return;
                     } else {
                         continue;
@@ -580,7 +704,7 @@ public final class WeChatClient {
                 }
                 //退出登录
                 XTools.logD(LOG_TAG, "正在退出登录");
-                wxListener.onLogout();
+                handleLogout();
                 return;
             }
         }
@@ -590,12 +714,13 @@ public final class WeChatClient {
          *
          * @return 登录时异常原因，为null表示正常登录
          */
+        @Nullable
         private String login() {
             try {
                 if (XTools.strEmpty(wxAPI.sid)) {
                     String qrCode = wxAPI.jslogin();
                     XTools.logD(LOG_TAG, "等待扫描二维码：%s", qrCode);
-                    wxListener.onQRCode(qrCode);
+                    handleQRCode(qrCode);
                     while (true) {
                         RspLogin rspLogin = wxAPI.login();
                         switch (rspLogin.code) {
@@ -605,7 +730,7 @@ public final class WeChatClient {
                                 return null;
                             case 201:
                                 XTools.logD(LOG_TAG, "已扫描二维码");
-                                wxListener.onAvatar(rspLogin.userAvatar);
+                                handleAvatar(rspLogin.userAvatar);
                                 break;
                             case 408:
                                 XTools.logD(LOG_TAG, "等待授权登录");
@@ -630,6 +755,7 @@ public final class WeChatClient {
          *
          * @return 初始化异常原因，为null表示正常初始化
          */
+        @Nullable
         private String initial() {
             try {
                 //通过Cookie获取重要参数
@@ -677,6 +803,7 @@ public final class WeChatClient {
          *
          * @return 同步消息的异常原因，为null表示正常结束
          */
+        @Nullable
         private String listen() {
             int retryCount = 0;
             try {
@@ -707,7 +834,7 @@ public final class WeChatClient {
                             //被移出群不会触发（会收到一条被移出群的addMsg）
                             for (RspInit.User user : rspSync.DelContactList) {
                                 XTools.logN(LOG_TAG, "删除联系人（%s）", user.UserName);
-                                wxListener.onContact(wxContacts.rmvContact(user.UserName), DEL_CONTACT);
+                                handleContact(wxContacts.rmvContact(user.UserName), null);
                             }
                         }
                         if (rspSync.ModContactList != null) {
@@ -718,11 +845,7 @@ public final class WeChatClient {
                             for (RspInit.User user : rspSync.ModContactList) {
                                 XTools.logN(LOG_TAG, "变更联系人（%s）", user.UserName);
                                 //由于在这里获取到的联系人（无论是群还是用户）的信息是不全的，所以使用接口重新获取
-                                if (wxContacts.getContact(user.UserName) != null) {
-                                    wxListener.onContact(fetchContact(user.UserName), MOD_CONTACT);
-                                } else {
-                                    wxListener.onContact(fetchContact(user.UserName), ADD_CONTACT);
-                                }
+                                handleContact(wxContacts.getContact(user.UserName), fetchContact(user.UserName));
                             }
                         }
                         if (rspSync.AddMsgList != null) {
@@ -738,7 +861,7 @@ public final class WeChatClient {
                                     }
                                 }
                                 //最后交给监听器处理
-                                wxListener.onMessage(wxMessage);
+                                handleMessage(wxMessage);
                             }
                         }
                     }
@@ -751,7 +874,8 @@ public final class WeChatClient {
             }
         }
 
-        private <T extends WXMessage> T parseCommon(RspSync.AddMsg msg, T message) {
+        @Nonnull
+        private <T extends WXMessage> T parseCommon(@Nonnull RspSync.AddMsg msg, @Nonnull T message) {
             message.id = msg.MsgId;
             message.idLocal = msg.MsgId;
             message.timestamp = msg.CreateTime * 1000;
@@ -802,7 +926,8 @@ public final class WeChatClient {
             return message;
         }
 
-        private WXMessage parseMessage(RspSync.AddMsg msg) {
+        @Nonnull
+        private WXMessage parseMessage(@Nonnull RspSync.AddMsg msg) {
             try {
                 switch (msg.MsgType) {
                     case RspSync.AddMsg.TYPE_TEXT: {
