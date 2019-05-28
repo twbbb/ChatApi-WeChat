@@ -59,7 +59,7 @@ public class WeChatDemo {
 
         @Override
         public void onContact(@Nonnull WeChatClient client, @Nullable WXContact oldContact, @Nullable WXContact newContact) {
-            System.out.println(String.format("检测到联系人变更:旧联系人名称%s:新联系人名称%s", (oldContact == null ? "null" : oldContact.name), (newContact == null ? "null" : newContact.name)));
+            System.out.println(String.format("检测到联系人变更:旧联系人名称：%s:新联系人名称：%s", (oldContact == null ? "null" : oldContact.name), (newContact == null ? "null" : newContact.name)));
         }
     };
 

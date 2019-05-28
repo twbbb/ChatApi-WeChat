@@ -833,8 +833,11 @@ public final class WeChatClient {
                             //删除群后的任意一条消息触发
                             //被移出群不会触发（会收到一条被移出群的addMsg）
                             for (RspInit.User user : rspSync.DelContactList) {
-                                XTools.logN(LOG_TAG, "删除联系人（%s）", user.UserName);
-                                handleContact(wxContacts.rmvContact(user.UserName), null);
+                                WXContact oldContact = wxContacts.rmvContact(user.UserName);
+                                if (oldContact != null && !XTools.strEmpty(oldContact.name)) {
+                                    XTools.logN(LOG_TAG, "删除联系人（%s）", user.UserName);
+                                    handleContact(oldContact, null);
+                                }
                             }
                         }
                         if (rspSync.ModContactList != null) {
@@ -843,9 +846,21 @@ public final class WeChatClient {
                             //被拉入新群第一条消息触发（同时收到2条addMsg，一条被拉入群，一条聊天消息）
                             //群里有人加入或群里踢人或修改群信息之后第一条信息触发
                             for (RspInit.User user : rspSync.ModContactList) {
-                                XTools.logN(LOG_TAG, "变更联系人（%s）", user.UserName);
                                 //由于在这里获取到的联系人（无论是群还是用户）的信息是不全的，所以使用接口重新获取
-                                handleContact(wxContacts.getContact(user.UserName), fetchContact(user.UserName));
+                                WXContact oldContact = wxContacts.getContact(user.UserName);
+                                if (oldContact != null && XTools.strEmpty(oldContact.name)) {
+                                    wxContacts.rmvContact(user.UserName);
+                                    oldContact = null;
+                                }
+                                WXContact newContact = fetchContact(user.UserName);
+                                if (newContact != null && XTools.strEmpty(newContact.name)) {
+                                    wxContacts.rmvContact(user.UserName);
+                                    newContact = null;
+                                }
+                                if (oldContact != null || newContact != null) {
+                                    XTools.logN(LOG_TAG, "变更联系人（%s）", user.UserName);
+                                    handleContact(oldContact, newContact);
+                                }
                             }
                         }
                         if (rspSync.AddMsgList != null) {
