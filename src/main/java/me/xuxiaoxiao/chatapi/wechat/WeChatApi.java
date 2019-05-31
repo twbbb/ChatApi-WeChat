@@ -4,9 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.protocol.*;
 import me.xuxiaoxiao.chatapi.wechat.protocol.ReqBatchGetContact.Contact;
+import me.xuxiaoxiao.chatapi.wechat.utils.WXHttpExecutor;
 import me.xuxiaoxiao.xtools.common.XTools;
+import me.xuxiaoxiao.xtools.common.config.XConfigTools;
 import me.xuxiaoxiao.xtools.common.http.executor.XHttpExecutor;
-import me.xuxiaoxiao.xtools.common.http.executor.impl.XHttpExecutorImpl;
 import me.xuxiaoxiao.xtools.common.http.executor.impl.XRequest;
 
 import java.io.BufferedInputStream;
@@ -33,7 +34,7 @@ final class WeChatApi {
 
     private final long timeInit = System.currentTimeMillis();
     private final AtomicBoolean firstLogin = new AtomicBoolean(true);
-    private final XHttpExecutor httpExecutor = new XHttpExecutorImpl();
+    private final XHttpExecutor httpExecutor = XConfigTools.supply(WXHttpExecutor.class.getName());
 
     String host;
     String uin;
@@ -200,10 +201,10 @@ final class WeChatApi {
         request.query("pass_ticket", this.passticket);
         request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqSync(new BaseRequest(uin, sid, skey), this.synckey))));
         RspSync rspSync = GSON.fromJson(XTools.http(httpExecutor, request).string(), RspSync.class);
-        if (rspSync.SyncKey != null && rspSync.SyncKey.List != null && !rspSync.SyncKey.List.isEmpty()) {
+        if (rspSync.SyncKey != null && rspSync.SyncKey.List != null && rspSync.SyncKey.Count > 0) {
             this.synckey = rspSync.SyncKey;
         }
-        if (rspSync.SyncCheckKey != null && rspSync.SyncCheckKey.List != null && !rspSync.SyncCheckKey.List.isEmpty()) {
+        if (rspSync.SyncCheckKey != null && rspSync.SyncCheckKey.List != null && rspSync.SyncCheckKey.Count > 0) {
             this.syncCheckKey = rspSync.SyncCheckKey;
         }
         return rspSync;

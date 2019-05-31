@@ -5,7 +5,9 @@ import com.google.gson.GsonBuilder;
 import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXContact;
 import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXGroup;
 import me.xuxiaoxiao.chatapi.wechat.entity.contact.WXUser;
-import me.xuxiaoxiao.chatapi.wechat.entity.message.*;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.WXMessage;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.WXUnknown;
+import me.xuxiaoxiao.chatapi.wechat.entity.message.WXVerify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,28 +35,28 @@ public class WeChatDemo {
         public void onMessage(@Nonnull WeChatClient client, @Nonnull WXMessage message) {
             System.out.println("获取到消息：" + GSON.toJson(message));
 
-            if (message instanceof WXVerify) {
-                //是好友请求消息，自动同意好友申请
-                client.passVerify((WXVerify) message);
-            } else if (message instanceof WXLocation && message.fromUser != null && !message.fromUser.id.equals(client.userMe().id)) {
-                // 如果对方告诉我他的位置，发送消息的不是自己，则我也告诉他我的位置
-                if (message.fromGroup != null) {
-                    // 群消息
-                    // client.sendLocation(message.fromGroup, "120.14556", "30.23856", "我在这里", "西湖");
-                } else {
-                    // 用户消息
-                    client.sendLocation(message.fromUser, "120.14556", "30.23856", "我在这里", "西湖");
-                }
-            } else if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(client.userMe().id)) {
-                //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
-                if (message.fromGroup != null) {
-                    // 群消息
-                    // client.sendText(message.fromGroup, message.content);
-                } else {
-                    // 用户消息
-                    client.sendText(message.fromUser, message.content);
-                }
-            }
+//            if (message instanceof WXVerify) {
+//                //是好友请求消息，自动同意好友申请
+//                client.passVerify((WXVerify) message);
+//            } else if (message instanceof WXLocation && message.fromUser != null && !message.fromUser.id.equals(client.userMe().id)) {
+//                // 如果对方告诉我他的位置，发送消息的不是自己，则我也告诉他我的位置
+//                if (message.fromGroup != null) {
+//                    // 群消息
+//                    // client.sendLocation(message.fromGroup, "120.14556", "30.23856", "我在这里", "西湖");
+//                } else {
+//                    // 用户消息
+//                    client.sendLocation(message.fromUser, "120.14556", "30.23856", "我在这里", "西湖");
+//                }
+//            } else if (message instanceof WXText && message.fromUser != null && !message.fromUser.id.equals(client.userMe().id)) {
+//                //是文字消息，并且发送消息的人不是自己，发送相同内容的消息
+//                if (message.fromGroup != null) {
+//                    // 群消息
+//                    // client.sendText(message.fromGroup, message.content);
+//                } else {
+//                    // 用户消息
+//                    client.sendText(message.fromUser, message.content);
+//                }
+//            }
         }
 
         @Override
