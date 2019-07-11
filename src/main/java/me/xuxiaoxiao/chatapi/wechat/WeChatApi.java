@@ -19,7 +19,6 @@ import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 
 /**
  * 网页版微信全部接口
@@ -30,7 +29,6 @@ final class WeChatApi {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static final String[] HOSTS = {"wx.qq.com", "wx2.qq.com", "wx8.qq.com", "web.wechat.com", "web2.wechat.com"};
-    private static final Pattern REX_LOGIN = Pattern.compile("<error>[\\s\\S]+</error>");
 
     private final long timeInit = System.currentTimeMillis();
     private final AtomicBoolean firstLogin = new AtomicBoolean(true);
@@ -105,11 +103,22 @@ final class WeChatApi {
      */
     void webwxnewloginpage(String url) {
         String rspStr = XTools.http(httpExecutor, XRequest.GET(url)).string();
-        if (!XTools.strEmpty(rspStr) && REX_LOGIN.matcher(rspStr).find()) {
-            this.uin = rspStr.substring(rspStr.indexOf("<wxuin>") + "<wxuin>".length(), rspStr.indexOf("</wxuin>"));
-            this.sid = rspStr.substring(rspStr.indexOf("<wxsid>") + "<wxsid>".length(), rspStr.indexOf("</wxsid>"));
-            this.skey = rspStr.substring(rspStr.indexOf("<skey>") + "<skey>".length(), rspStr.indexOf("</skey>"));
-            this.passticket = rspStr.substring(rspStr.indexOf("<pass_ticket>") + "<pass_ticket>".length(), rspStr.indexOf("</pass_ticket>"));
+        if (!XTools.strEmpty(rspStr)) {
+            if (rspStr.contains("<wxuin>")) {
+                this.uin = rspStr.substring(rspStr.indexOf("<wxuin>") + "<wxuin>".length(), rspStr.indexOf("</wxuin>"));
+            }
+            if (rspStr.contains("<wxsid>")) {
+                this.sid = rspStr.substring(rspStr.indexOf("<wxsid>") + "<wxsid>".length(), rspStr.indexOf("</wxsid>"));
+            }
+            if (rspStr.contains("<skey>")) {
+                this.skey = rspStr.substring(rspStr.indexOf("<skey>") + "<skey>".length(), rspStr.indexOf("</skey>"));
+            }
+            if (this.skey == null) {
+                this.skey = "";
+            }
+            if (rspStr.contains("<pass_ticket>")) {
+                this.passticket = rspStr.substring(rspStr.indexOf("<pass_ticket>") + "<pass_ticket>".length(), rspStr.indexOf("</pass_ticket>"));
+            }
         }
     }
 
@@ -125,6 +134,9 @@ final class WeChatApi {
         request.content(new XRequest.StringContent(XRequest.MIME_JSON, GSON.toJson(new ReqInit(new BaseRequest(uin, sid, skey)))));
         RspInit rspInit = GSON.fromJson(XTools.http(httpExecutor, request).string(), RspInit.class);
         this.skey = rspInit.SKey;
+        if (this.skey == null) {
+            this.skey = "";
+        }
         this.synckey = rspInit.SyncKey;
         return rspInit;
     }
