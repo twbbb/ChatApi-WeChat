@@ -27,7 +27,7 @@ public class RspSync {
         public long BindUin;
         public ProfileItem BindEmail;
         public ProfileItem BindMobile;
-        public int Status;
+        public long Status;
         public int Sex;
         public int PersonalCard;
         public String Alias;
@@ -70,6 +70,10 @@ public class RspSync {
          */
         public static final int TYPE_EMOJI = 47;
         /**
+         * 定位消息
+         */
+        public static final int TYPE_LOCATION = 48;
+        /**
          * 转账、文件、链接、笔记等
          */
         public static final int TYPE_OTHER = 49;
@@ -92,8 +96,8 @@ public class RspSync {
         public String ToUserName;
         public int MsgType;
         public String Content;
-        public int Status;
-        public int ImgStatus;
+        public long Status;
+        public long ImgStatus;
         public long CreateTime;
         public long VoiceLength;
         public int PlayLength;
@@ -117,7 +121,7 @@ public class RspSync {
         public static class RecommendInfo {
             public String UserName;
             public String NickName;
-            public int QQNum;
+            public long QQNum;
             public String Province;
             public String City;
             public String Content;
@@ -125,7 +129,7 @@ public class RspSync {
             public String Alias;
             public int Scene;
             public int VerifyFlag;
-            public int AttrStatus;
+            public long AttrStatus;
             public int Sex;
             public String Ticket;
             public int OpCode;

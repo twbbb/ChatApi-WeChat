@@ -26,6 +26,7 @@ final class WeChatContacts {
             group.nameQP = contact.PYQuanPin;
             group.avatarUrl = String.format("https://%s%s", host, contact.HeadImgUrl);
             group.contactFlag = contact.ContactFlag;
+            group.isDetail = false;
             group.isOwner = contact.IsOwner > 0;
             group.members = new HashMap<>();
             for (RspInit.User user : contact.MemberList) {
@@ -142,9 +143,9 @@ final class WeChatContacts {
      *
      * @param userId 联系人id
      */
-    void rmvContact(String userId) {
+    WXContact rmvContact(String userId) {
         this.groups.remove(userId);
         this.friends.remove(userId);
-        this.contacts.remove(userId);
+        return this.contacts.remove(userId);
     }
 }

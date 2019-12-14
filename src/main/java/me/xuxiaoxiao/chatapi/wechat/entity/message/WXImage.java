@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.Serializable;
 
 /**
- * 微信静态图片消息
+ * 微信静态或动态图片消息
  */
 public class WXImage extends WXMessage implements Serializable, Cloneable {
     /**
@@ -20,7 +20,7 @@ public class WXImage extends WXMessage implements Serializable, Cloneable {
      */
     public File image;
     /**
-     * 静态图刚开始为null，手动调用接口后为原图。动态图一开始就是原图
+     * 静态图获取原图之前为null，获取原图之后为原图，动态图一开始就是原图
      */
     public File origin;
 
