@@ -234,7 +234,6 @@ public final class WeChatClient {
             syncCheckKey.setAccessible(true);
             sbLogin.append("\n\tsyncCheckKey：").append(syncCheckKey.get(wxAPI));
             XTools.logE(LOG_TAG, sbLogin.toString().replace("%", "%%"));
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -354,12 +353,12 @@ public final class WeChatClient {
      */
     @Nonnull
     public WXText sendText(@Nonnull WXContact wxContact, @Nonnull String text) {
-        XTools.logN(LOG_TAG, "向（%s）发送消息：%s", wxContact.id, text);
+        XTools.logN(LOG_TAG, String.format("向（%s：%s）发送文字消息：%s", wxContact.id, wxContact.name, text));
         RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_TEXT, null, 0, text, null, wxContacts.getMe().id, wxContact.id));
 
         WXText wxText = new WXText();
-        wxText.id = Long.valueOf(rspSendMsg.MsgID);
-        wxText.idLocal = Long.valueOf(rspSendMsg.LocalID);
+        wxText.id = Long.parseLong(rspSendMsg.MsgID);
+        wxText.idLocal = Long.parseLong(rspSendMsg.LocalID);
         wxText.timestamp = System.currentTimeMillis();
         wxText.fromGroup = null;
         wxText.fromUser = wxContacts.getMe();
@@ -379,11 +378,11 @@ public final class WeChatClient {
     public WXMessage sendFile(@Nonnull WXContact wxContact, @Nonnull File file) {
         String suffix = WeChatTools.fileSuffix(file);
         if ("mp4".equals(suffix) && file.length() >= 20L * 1024L * 1024L) {
-            XTools.logW(LOG_TAG, "向（%s）发送的视频文件大于20M，无法发送", wxContact.id);
+            XTools.logW(LOG_TAG, String.format("向（%s：%s）发送的视频文件大于20M，无法发送", wxContact.id, wxContact.name));
             return null;
         } else {
             try {
-                XTools.logN(LOG_TAG, "向（%s）发送文件：%s", wxContact.id, file.getAbsolutePath());
+                XTools.logN(LOG_TAG, String.format("向（%s：%s）发送文件：%s", wxContact.id, wxContact.name, file.getAbsolutePath()));
                 String mediaId = null, aesKey = null, signature = null;
                 if (file.length() >= 25L * 1024L * 1024L) {
                     RspCheckUpload rspCheckUpload = wxAPI.webwxcheckupload(file, wxContacts.getMe().id, wxContact.id);
@@ -401,8 +400,8 @@ public final class WeChatClient {
                         case "pic": {
                             RspSendMsg rspSendMsg = wxAPI.webwxsendmsgimg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_IMAGE, mediaId, null, "", signature, wxContacts.getMe().id, wxContact.id));
                             WXImage wxImage = new WXImage();
-                            wxImage.id = Long.valueOf(rspSendMsg.MsgID);
-                            wxImage.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                            wxImage.id = Long.parseLong(rspSendMsg.MsgID);
+                            wxImage.idLocal = Long.parseLong(rspSendMsg.LocalID);
                             wxImage.timestamp = System.currentTimeMillis();
                             wxImage.fromGroup = null;
                             wxImage.fromUser = wxContacts.getMe();
@@ -416,8 +415,8 @@ public final class WeChatClient {
                         case "video": {
                             RspSendMsg rspSendMsg = wxAPI.webwxsendvideomsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_VIDEO, mediaId, null, "", signature, wxContacts.getMe().id, wxContact.id));
                             WXVideo wxVideo = new WXVideo();
-                            wxVideo.id = Long.valueOf(rspSendMsg.MsgID);
-                            wxVideo.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                            wxVideo.id = Long.parseLong(rspSendMsg.MsgID);
+                            wxVideo.idLocal = Long.parseLong(rspSendMsg.LocalID);
                             wxVideo.timestamp = System.currentTimeMillis();
                             wxVideo.fromGroup = null;
                             wxVideo.fromUser = wxContacts.getMe();
@@ -433,8 +432,8 @@ public final class WeChatClient {
                             if ("gif".equals(suffix)) {
                                 RspSendMsg rspSendMsg = wxAPI.webwxsendemoticon(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_EMOJI, mediaId, 2, "", signature, wxContacts.getMe().id, wxContact.id));
                                 WXImage wxImage = new WXImage();
-                                wxImage.id = Long.valueOf(rspSendMsg.MsgID);
-                                wxImage.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                                wxImage.id = Long.parseLong(rspSendMsg.MsgID);
+                                wxImage.idLocal = Long.parseLong(rspSendMsg.LocalID);
                                 wxImage.timestamp = System.currentTimeMillis();
                                 wxImage.fromGroup = null;
                                 wxImage.fromUser = wxContacts.getMe();
@@ -463,8 +462,8 @@ public final class WeChatClient {
                                 sbAppMsg.append("</appmsg>");
                                 RspSendMsg rspSendMsg = wxAPI.webwxsendappmsg(new ReqSendMsg.Msg(6, null, null, sbAppMsg.toString(), signature, wxContacts.getMe().id, wxContact.id));
                                 WXFile wxFile = new WXFile();
-                                wxFile.id = Long.valueOf(rspSendMsg.MsgID);
-                                wxFile.idLocal = Long.valueOf(rspSendMsg.LocalID);
+                                wxFile.id = Long.parseLong(rspSendMsg.MsgID);
+                                wxFile.idLocal = Long.parseLong(rspSendMsg.LocalID);
                                 wxFile.timestamp = System.currentTimeMillis();
                                 wxFile.fromGroup = null;
                                 wxFile.fromUser = wxContacts.getMe();
@@ -478,7 +477,7 @@ public final class WeChatClient {
                             }
                     }
                 } else {
-                    XTools.logE(LOG_TAG, "向（%s）发送的文件发送失败", wxContact.id);
+                    XTools.logE(LOG_TAG, String.format("向（%s：%s）发送的文件发送失败", wxContact.id, wxContact.name));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -503,16 +502,16 @@ public final class WeChatClient {
      */
     @Nonnull
     public WXLocation sendLocation(@Nonnull WXContact wxContact, @Nonnull String lon, @Nonnull String lat, @Nonnull String title, @Nonnull String lable) {
-        XTools.logN(LOG_TAG, "向（%s）发送位置信息，坐标：%s,%s，说明：%s(%s)", wxContact.id, lon, lat, title, lable);
+        XTools.logN(LOG_TAG, String.format("向（%s：%s）发送位置信息，坐标：%s,%s，说明：%s(%s)", wxContact.id, wxContact.name, lon, lat, title, lable));
         StringBuilder sbLocationMsg = new StringBuilder();
         sbLocationMsg.append("<?xml version=\"1.0\"?>\n");
         sbLocationMsg.append("<msg>\n");
-        sbLocationMsg.append("<location x=\"" + lat + "\" y=\"" + lon + "\" scale=\"15\" label=\"" + lable + "\" maptype=\"roadmap\" poiname=\"" + title + "\" poiid=\"City\" />\n");
+        sbLocationMsg.append("<location x=\"").append(lat).append("\" y=\"").append(lon).append("\" scale=\"15\" label=\"").append(lable).append("\" maptype=\"roadmap\" poiname=\"").append(title).append("\" poiid=\"City\" />\n");
         sbLocationMsg.append("</msg>\n");
         RspSendMsg rspSendMsg = wxAPI.webwxsendmsg(new ReqSendMsg.Msg(RspSync.AddMsg.TYPE_LOCATION, null, 0, sbLocationMsg.toString(), null, wxContacts.getMe().id, wxContact.id));
         WXLocation wxLocation = new WXLocation();
-        wxLocation.id = Long.valueOf(rspSendMsg.MsgID);
-        wxLocation.idLocal = Long.valueOf(rspSendMsg.LocalID);
+        wxLocation.id = Long.parseLong(rspSendMsg.MsgID);
+        wxLocation.idLocal = Long.parseLong(rspSendMsg.LocalID);
         wxLocation.timestamp = System.currentTimeMillis();
         wxLocation.fromGroup = null;
         wxLocation.fromUser = wxContacts.getMe();
@@ -609,7 +608,7 @@ public final class WeChatClient {
      * @param wxMessage 需要撤回的微信消息
      */
     public void revokeMsg(@Nonnull WXMessage wxMessage) {
-        XTools.logN(LOG_TAG, "撤回向（%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.idLocal, wxMessage.id);
+        XTools.logN(LOG_TAG, String.format("撤回向（%s：%s）发送的消息：%s，%s", wxMessage.toContact.id, wxMessage.toContact.name, wxMessage.idLocal, wxMessage.id));
         wxAPI.webwxrevokemsg(wxMessage.idLocal, wxMessage.id, wxMessage.toContact.id);
     }
 
@@ -619,7 +618,7 @@ public final class WeChatClient {
      * @param wxVerify 好友验证消息
      */
     public void passVerify(@Nonnull WXVerify wxVerify) {
-        XTools.logN(LOG_TAG, "通过好友（%s）申请", wxVerify.userId);
+        XTools.logN(LOG_TAG, String.format("通过（%s：%s）的好友申请", wxVerify.userId, wxVerify.userName));
         wxAPI.webwxverifyuser(3, wxVerify.userId, wxVerify.ticket, "");
     }
 
@@ -630,7 +629,7 @@ public final class WeChatClient {
      * @param remark 备注名称
      */
     public void editRemark(@Nonnull WXUser wxUser, @Nonnull String remark) {
-        XTools.logN(LOG_TAG, "修改（%s）的备注：%s", wxUser.id, remark);
+        XTools.logN(LOG_TAG, String.format("修改（%s：%s）的备注：%s", wxUser.id, wxUser.name, remark));
         wxAPI.webwxoplog(ReqOplog.CMD_REMARK, ReqOplog.OP_NONE, wxUser.id, remark);
     }
 
@@ -641,7 +640,7 @@ public final class WeChatClient {
      * @param isTop     是否置顶
      */
     public void topContact(@Nonnull WXContact wxContact, boolean isTop) {
-        XTools.logN(LOG_TAG, "设置（%s）的置顶状态：%s", wxContact.id, isTop);
+        XTools.logN(LOG_TAG, String.format("设置（%s：%s）的置顶状态：%s", wxContact.id, wxContact.name, isTop));
         wxAPI.webwxoplog(ReqOplog.CMD_TOP, isTop ? ReqOplog.OP_TOP_TRUE : ReqOplog.OP_TOP_FALSE, wxContact.id, null);
     }
 
@@ -652,7 +651,7 @@ public final class WeChatClient {
      * @param name    目标名称
      */
     public void setGroupName(@Nonnull WXGroup wxGroup, @Nonnull String name) {
-        XTools.logN(LOG_TAG, "为群（%s）修改名称：%s", wxGroup.id, name);
+        XTools.logN(LOG_TAG, String.format("将群（%s：%s）的名称修改为：%s", wxGroup.id, wxGroup.name, name));
         wxAPI.webwxupdatechartroom(wxGroup.id, "modtopic", name, new LinkedList<String>());
     }
 
@@ -663,6 +662,7 @@ public final class WeChatClient {
         /**
          * 获取到用户登录的二维码
          *
+         * @param client 微信客户端
          * @param qrCode 用户登录二维码的url
          */
         public abstract void onQRCode(@Nonnull WeChatClient client, @Nonnull String qrCode);
@@ -670,6 +670,7 @@ public final class WeChatClient {
         /**
          * 获取用户头像，base64编码
          *
+         * @param client       微信客户端
          * @param base64Avatar base64编码的用户头像
          */
         public void onAvatar(@Nonnull WeChatClient client, @Nonnull String base64Avatar) {
@@ -678,6 +679,7 @@ public final class WeChatClient {
         /**
          * 模拟网页微信客户端异常退出
          *
+         * @param client 微信客户端
          * @param reason 错误原因
          */
         public void onFailure(@Nonnull WeChatClient client, @Nonnull String reason) {
@@ -686,6 +688,8 @@ public final class WeChatClient {
 
         /**
          * 用户登录并初始化成功
+         *
+         * @param client 微信客户端
          */
         public void onLogin(@Nonnull WeChatClient client) {
         }
@@ -693,6 +697,7 @@ public final class WeChatClient {
         /**
          * 用户获取到消息
          *
+         * @param client  微信客户端
          * @param message 用户获取到的消息
          */
         public void onMessage(@Nonnull WeChatClient client, @Nonnull WXMessage message) {
@@ -710,6 +715,8 @@ public final class WeChatClient {
 
         /**
          * 模拟网页微信客户端正常退出
+         *
+         * @param client 微信客户端
          */
         public void onLogout(@Nonnull WeChatClient client) {
             client.dump();
@@ -729,7 +736,7 @@ public final class WeChatClient {
                 XTools.logD(LOG_TAG, "正在登录");
                 String loginErr = login();
                 if (!XTools.strEmpty(loginErr)) {
-                    XTools.logE(LOG_TAG, "登录出现错误：%s", loginErr);
+                    XTools.logE(LOG_TAG, String.format("登录出现错误：%s", loginErr));
                     handleFailure(loginErr);
                     return;
                 }
@@ -737,7 +744,7 @@ public final class WeChatClient {
                 XTools.logD(LOG_TAG, "正在初始化");
                 String initErr = initial();
                 if (!XTools.strEmpty(initErr)) {
-                    XTools.logE(LOG_TAG, "初始化出现错误：%s", initErr);
+                    XTools.logE(LOG_TAG, String.format("初始化出现错误：%s", initErr));
                     handleFailure(initErr);
                     return;
                 }
@@ -770,7 +777,7 @@ public final class WeChatClient {
             try {
                 if (XTools.strEmpty(wxAPI.sid)) {
                     String qrCode = wxAPI.jslogin();
-                    XTools.logD(LOG_TAG, "等待扫描二维码：%s", qrCode);
+                    XTools.logD(LOG_TAG, String.format("等待扫描二维码：%s", qrCode));
                     handleQRCode(qrCode);
                     while (true) {
                         RspLogin rspLogin = wxAPI.login();
@@ -844,7 +851,7 @@ public final class WeChatClient {
                 return null;
             } catch (Exception e) {
                 e.printStackTrace();
-                XTools.logW(LOG_TAG, "初始化异常：%s", e.getMessage());
+                XTools.logW(LOG_TAG, String.format("初始化异常：%s", e.getMessage()));
                 return INIT_EXCEPTION;
             }
         }
@@ -866,7 +873,7 @@ public final class WeChatClient {
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (retryCount++ < 5) {
-                            XTools.logW(LOG_TAG, e, "监听异常，重试第%d次", retryCount);
+                            XTools.logW(LOG_TAG, e, String.format("监听异常，重试第%d次", retryCount));
                             continue;
                         } else {
                             XTools.logE(LOG_TAG, e, "监听异常，重试次数过多");
@@ -875,7 +882,7 @@ public final class WeChatClient {
                     }
                     retryCount = 0;
                     if (rspSyncCheck.retcode > 0) {
-                        XTools.logW(LOG_TAG, "停止监听信息：%d", rspSyncCheck.retcode);
+                        XTools.logW(LOG_TAG, String.format("停止监听信息：%d", rspSyncCheck.retcode));
                         return null;
                     } else if (rspSyncCheck.selector > 0) {
                         RspSync rspSync = wxAPI.webwxsync();
@@ -886,7 +893,7 @@ public final class WeChatClient {
                             for (RspInit.User user : rspSync.DelContactList) {
                                 WXContact oldContact = wxContacts.rmvContact(user.UserName);
                                 if (oldContact != null && !XTools.strEmpty(oldContact.name)) {
-                                    XTools.logN(LOG_TAG, "删除联系人（%s）", user.UserName);
+                                    XTools.logN(LOG_TAG, String.format("删除联系人（%s）", user.UserName));
                                     handleContact(oldContact, null);
                                 }
                             }
@@ -909,7 +916,7 @@ public final class WeChatClient {
                                     newContact = null;
                                 }
                                 if (oldContact != null || newContact != null) {
-                                    XTools.logN(LOG_TAG, "变更联系人（%s）", user.UserName);
+                                    XTools.logN(LOG_TAG, String.format("变更联系人（%s）", user.UserName));
                                     handleContact(oldContact, newContact);
                                 }
                             }
@@ -1086,7 +1093,7 @@ public final class WeChatClient {
                             WXFile wxFile = parseCommon(msg, new WXFile());
                             wxFile.fileId = msg.MediaId;
                             wxFile.fileName = msg.FileName;
-                            wxFile.fileSize = XTools.strEmpty(msg.FileSize) ? 0 : Long.valueOf(msg.FileSize);
+                            wxFile.fileSize = XTools.strEmpty(msg.FileSize) ? 0 : Long.parseLong(msg.FileSize);
                             return wxFile;
                         } else if (msg.AppMsgType == 8) {
                             WXImage wxImage = parseCommon(msg, new WXImage());
@@ -1113,7 +1120,7 @@ public final class WeChatClient {
                         WXRevoke wxRevoke = parseCommon(msg, new WXRevoke());
                         Matcher idMatcher = REX_REVOKE_ID.matcher(wxRevoke.content);
                         if (idMatcher.find()) {
-                            wxRevoke.msgId = Long.valueOf(idMatcher.group(1));
+                            wxRevoke.msgId = Long.parseLong(idMatcher.group(1));
                         }
                         Matcher replaceMatcher = REX_REVOKE_REPLACE.matcher(wxRevoke.content);
                         if (replaceMatcher.find()) {
